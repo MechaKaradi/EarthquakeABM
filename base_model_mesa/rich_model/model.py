@@ -18,21 +18,19 @@ class MinimalModel(Model):
     def __init__(self):
         self.schedule = time.RandomActivation(self)
         with open('street_network.data', 'rb') as file:
-            self.streets = pickle.load(file)
+            self.G = pickle.load(file)
         
-        self.G = self.streets
-        
-        self.grid = space.NetworkGrid(self.streets)
-        
-        
+        self.grid = space.NetworkGrid(self.G)
         self.num_agents = 10
+
+        list_of_random_nodes = self.random.sample(list(self.G), self.num_agents)
+        
   
         for i in range(self.num_agents):
             a = MinimalAgent(i, self)
             self.schedule.add(a)
-            location = random.choice(list(self.streets))
             #print(location)
-            self.grid.place_agent(a, location)
+            self.grid.place_agent(a, list_of_random_nodes[i])
 
         model_metrics = {
             "Number of Agents": count_agents
@@ -52,21 +50,28 @@ class MinimalModel(Model):
         self.schedule.step()
         self.datacollector.collect(self)
 
+    def run_model(self, n):
+        for i in range(n):
+            self.step()
+
 """ Model metrics"""
 def count_agents(self):
     return self.num_agents
 
 
 """Run Model"""
+"""
 model = MinimalModel()
 for i in range(3):
     model.step()
-
+"""
 
 
 
 # Get the Pandas Dataframe from the model, by using the table name we defined in the model
+"""
 model_data = model.datacollector.get_model_vars_dataframe()
 agent_data = model.datacollector.get_agent_vars_dataframe()
 print(model_data)
 print(agent_data)
+"""
