@@ -1,5 +1,6 @@
 from mesa.visualization.ModularVisualization import ModularServer
-from mesa.visualization.modules import CanvasGrid, ChartModule, NetworkModule
+from mesa.visualization.modules import CanvasGrid, ChartModule
+from .network_visualiser_v2 import NetworkModule_xy
 from mesa.visualization.UserParam import UserSettableParameter
 
 import math
@@ -15,10 +16,13 @@ def network_portrayal(G):
     portrayal = dict()
     portrayal["nodes"] = [
         {
-            "size": 3,
+            "id": n[0],
+            "x": n[1][0] -24000,
+            "y":n[1][1] -5200,
+            "size": 30,
             "color": "#CC0000",
         }
-        for each in list(G.nodes)
+        for n in G.nodes.data('pos')
         ]
 
     portrayal["edges"] = [
@@ -27,7 +31,7 @@ def network_portrayal(G):
             "target": target,
             "color": "#000000"
         }
-        for (source, target) in G.edges()
+        for edge_id, (source, target) in enumerate(G.edges)
     ]
 
     return portrayal
@@ -35,7 +39,7 @@ def network_portrayal(G):
 model_params = {
     }
 
-grid = NetworkModule(network_portrayal, 500, 500)
+grid = NetworkModule_xy(network_portrayal, 500, 500)
 
 # network = NetworkModule(portrayal_method= agent_portrayal)
 # library='d3'
