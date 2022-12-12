@@ -54,7 +54,7 @@ def network_portrayal(G):
 model_params = {
     }
 
-grid = NetworkModule_xy(network_portrayal, 500, 500)
+grid = NetworkModule_xy(network_portrayal, 500, 800)
 
 # network = NetworkModule(portrayal_method= agent_portrayal)
 # library='d3'

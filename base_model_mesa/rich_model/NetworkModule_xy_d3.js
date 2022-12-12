@@ -31,7 +31,7 @@ const NetworkModule_xy = function (svg_width, svg_height) {
 
   svg.call(
       zoom.transform,
-      d3.zoomIdentity.translate(width / 2, height / 2)
+      d3.zoomIdentity.translate(width / 2, height / 2).scale(0.035)
   );
 
   const links = g.append("g").attr("class", "links");
