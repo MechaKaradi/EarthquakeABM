@@ -31,7 +31,7 @@ const NetworkModule_xy = function (svg_width, svg_height) {
 
   svg.call(
       zoom.transform,
-      d3.zoomIdentity.translate(width / 2, height / 2)
+      d3.zoomIdentity.translate(width / 2, height / 2).scale(0.035)
   );
 
   const links = g.append("g").attr("class", "links");
@@ -67,16 +67,16 @@ const NetworkModule_xy = function (svg_width, svg_height) {
         .selectAll("line")
         .data(graph.edges)
         .attr("x1", function (d) {
-          return d.source.x;
+          return d.sourcex;
         })
         .attr("y1", function (d) {
-          return d.source.y;
+          return d.sourcey;
         })
         .attr("x2", function (d) {
-          return d.target.x;
+          return d.targetx;
         })
         .attr("y2", function (d) {
-          return d.target.y;
+          return d.targety;
         })
         .attr("stroke-width", function (d) {
           return d.width;
