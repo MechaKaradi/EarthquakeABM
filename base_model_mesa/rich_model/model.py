@@ -11,7 +11,7 @@ import matplotlib.pyplot as plt
 import random
 
 
-from rich_model.agents import *
+from .agents import *
 
 
 class MinimalModel(Model):
@@ -19,7 +19,7 @@ class MinimalModel(Model):
         self.schedule = time.RandomActivation(self)
         with open('street_network.data', 'rb') as file:
             self.G = pickle.load(file)
-        
+        self.G = nx.relabel_nodes(self.G, {15012: 0})
         self.grid = space.NetworkGrid(self.G)
         self.num_agents = 10
 
