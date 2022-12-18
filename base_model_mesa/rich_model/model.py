@@ -10,8 +10,7 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import random
 
-
-from .agents import *
+from agents import MinimalAgent, Buildings
 
 
 class MinimalModel(Model):
@@ -24,12 +23,17 @@ class MinimalModel(Model):
         self.num_agents = 10
 
         list_of_random_nodes = self.random.sample(list(self.G), self.num_agents)
-        
-  
+
         for i in range(self.num_agents):
-            a = MinimalAgent(i, self)
+            a = MinimalAgent(i+100000, self)
             self.schedule.add(a)
-            #print(location)
+            print(list_of_random_nodes[i])
+            self.grid.place_agent(a, list_of_random_nodes[i])
+
+        for i in range(self.num_agents):
+            a = Buildings(i+200000, self)
+            self.schedule.add(a)
+            print(list_of_random_nodes[i])
             self.grid.place_agent(a, list_of_random_nodes[i])
 
         model_metrics = {
@@ -37,7 +41,9 @@ class MinimalModel(Model):
         }
 
         agent_metrics = {
-            "Agent ID": "unique_id"
+            "Agent ID": "unique_id",
+            "Agent Colour": "color",
+            "family": "agentFamily",
         }
 
         self.datacollector = DataCollector(model_reporters=model_metrics, agent_reporters=agent_metrics)
@@ -50,9 +56,11 @@ class MinimalModel(Model):
         self.schedule.step()
         self.datacollector.collect(self)
 
+"""
     def run_model(self, n):
         for i in range(n):
             self.step()
+"""
 
 """ Model metrics"""
 def count_agents(self):

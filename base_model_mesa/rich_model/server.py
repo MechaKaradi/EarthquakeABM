@@ -6,8 +6,8 @@ from mesa.visualization.UserParam import UserSettableParameter
 import math
 
 
-from .model import MinimalModel
-from .agents import MinimalAgent
+from model import MinimalModel
+from agents import MinimalAgent
 
 
 def network_portrayal(G):
