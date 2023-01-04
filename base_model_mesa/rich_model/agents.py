@@ -55,3 +55,6 @@ class Buildings(MinimalAgent):
         state = initial_state
         capacity = base_capacity
 
+
+
+class Citizen(MinimalAgent):
