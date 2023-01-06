@@ -23,8 +23,9 @@ class MinimalAgent(Agent):
     def step(self):
         print("Hello world! I am agent: " + str(self.unique_id) +
               "\n my node id is: " + str(self.pos) +
-              "\n my color is: " + str(self.color)
-              )
+              "\n my color is: " + str(self.color))
+
+
 class Buildings(MinimalAgent):
     """
     Buildings exist on each node in the model
@@ -41,7 +42,8 @@ class Buildings(MinimalAgent):
     injure or trap citizens on the node in the building.
 
     """
-    def __init__(self, unique_id, model, initial_state = 0, base_capacity = 0):
+
+    def __init__(self, unique_id, model, initial_state=0, base_capacity=0):
         """
         Parameters
         ----------
@@ -50,11 +52,59 @@ class Buildings(MinimalAgent):
         initial_state : int
         base_capacity : int
         """
-        super().__init__(unique_id,model)
+        super().__init__(unique_id, model)
         print(self.color)
         state = initial_state
         capacity = base_capacity
 
+        def step(self):
+            super().step(self)
+
+class MobileAgent(MinimalAgent):
+    """
+    Basic agent capable of traversing the spatial network in the model
+    """
+    def __int__(self, unique_id, model):
+        super().__int__(unique_id, model)
+
+    def spawn(location):
+        """
+        Spawn the agent at an initial location on the spatial network.
+        Location can be a position
+        Returns -> None
+        -------
+
+        """
+
+    def find_path(self,destination):
 
 
-class Citizen(MinimalAgent):
+    pass
+
+
+class Citizen(MobileAgent):
+    """
+    A citizen is the parent class for all agents that represent residents of the city that are potentially affected
+    by the disaster and are attempting to survive the situation. Citizens are able to traverse the network,
+    enter or exit buildings, and may visit hospitals. Citizens have a health value (max 13) and a trapped status(
+    boolean),
+    If a citizen health value goes to below 13 they become a casulality
+    If the citizen health value goes to 0 they become a corpse.
+    Each citizen is a 'resident' of the city and has a `Residence(Building)` which they are assigned to as their 'home.
+    """
+
+    def __init__(self, unique_id, model, health=13, trapped=False):
+        """
+        Parameters
+        ----------
+        unique_id
+        model
+        health
+        trapped
+        """
+        super().__init__(unique_id, model)
+        self.health = health
+        self.trapped = trapped
+
+
+    pass
