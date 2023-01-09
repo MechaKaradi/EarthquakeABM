@@ -1,3 +1,4 @@
+import networkx
 from mesa import Agent
 import mesa.time as time
 import mesa.space as space
@@ -12,6 +13,7 @@ import random
 
 
 class MinimalAgent(Agent):
+
     def __init__(self, unique_id, model):
         super().__init__(unique_id, model)
         self.agentFamily = str(type(self))
@@ -60,27 +62,41 @@ class Buildings(MinimalAgent):
         def step(self):
             super().step(self)
 
+
 class MobileAgent(MinimalAgent):
     """
     Basic agent capable of traversing the spatial network in the model
+    Attributes
+    model_parent : the model in which the agent is being initialized
     """
     def __int__(self, unique_id, model):
         super().__int__(unique_id, model)
 
-    def spawn(location):
+    current_location = None
+
+    def spawn(self, location: str = None, ) -> None:
         """
         Spawn the agent at an initial location on the spatial network.
-        Location can be a position
-        Returns -> None
-        -------
+        Default location of the agent is a node
+        Args:
+            location : a node ID for the spatial network. If None, select a random node ID from the model
 
+        -------
+        Returns
+        None
         """
 
-    def find_path(self,destination):
+        if location == None:
+            location = self.model.random.sample(list(self.model.G),1)
+            location = location[0]
 
+        self.model.grid.place_agent(self, location)
 
-    pass
+        self.current_location = location
+        return None
 
+    def find_path(self, destination):
+        pass
 
 class Citizen(MobileAgent):
     """
@@ -105,6 +121,5 @@ class Citizen(MobileAgent):
         super().__init__(unique_id, model)
         self.health = health
         self.trapped = trapped
-
 
     pass
