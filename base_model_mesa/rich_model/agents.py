@@ -11,7 +11,6 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import random
 
-
 class MinimalAgent(Agent):
 
     def __init__(self, unique_id, model):
@@ -26,6 +25,13 @@ class MinimalAgent(Agent):
         print("Hello world! I am agent: " + str(self.unique_id) +
               "\n my node id is: " + str(self.pos) +
               "\n my color is: " + str(self.color))
+
+class StaticAgent(MinimalAgent):
+    def init(self, unique_id, model):
+        super().__init__(unique_id, model)
+
+    def place(self, location):
+        self.model.grid.place_agent(self, location)
 
 
 class Buildings(MinimalAgent):
@@ -42,6 +48,8 @@ class Buildings(MinimalAgent):
     Each Building has a 'damageFromTremor' method which responds to an earthquake call at the beginning of a tick
     when `damageFromTremor` is called, it has a probability to increase the building damage, and a probability to
     injure or trap citizens on the node in the building.
+
+    TODO: Create a dictionary
 
     """
 

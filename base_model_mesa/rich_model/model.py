@@ -59,10 +59,10 @@ class MinimalModel(Model):
         return _create_agent
 
     def spawn_one_agent(self, agent_type, location):
+        self.num_agents += 1
         unique_id = f" {str(agent_type)}_{num_agents}"
         a = agent_type(unique_id, self)
         self.schedule.add(a)
-        self.num_agents += 1
         self.agent_dictionary[a.unique_id] = a
         self.grid.place_agent(a, self.random.choice(list(self.G)))
 
