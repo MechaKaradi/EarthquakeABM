@@ -42,19 +42,23 @@ class MinimalModel(Model):
     # Create a closure to create agents with different classes but sequential unique ids
     def create_agents(self, agent_type):
         agent_type_str = str(agent_type)
-        # set agent_id to a integer representation of the agent_type
-
-        agent_id = 400000
+        # set agent_id to an integer representation of the agent_type
+        agent_id = 0
         model = self
 
         def _create_agent(location):
             nonlocal agent_id
             nonlocal model
-            a = agent_type(agent_id, model)
+            unique_id = f"{agent_type_str}_{agent_id}"
+            a = agent_type(unique_id, model)
             model.schedule.add(a)
+
             agent_id += 1
             model.agent_dictionary[a.unique_id] = a
-            model.grid.place_agent(a, location)
+
+            a.spawn(location=location)
+
+            return a
 
         return _create_agent
 

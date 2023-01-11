@@ -21,6 +21,29 @@ class MinimalAgent(Agent):
                                         random.randrange(0, 256, 16)
                                         )
 
+    position = None
+
+    def spawn(self, location: str = None, ) -> None:
+        """
+        Spawn the agent at an initial location on the spatial network.
+        Default location of the agent is a node
+        Args:
+            location : a node ID for the spatial network. If None, select a random node ID from the model
+
+        -------
+        Returns
+        None
+        """
+
+        if location == None:
+            location = self.model.random.sample(list(self.model.G), 1)
+            location = location[0]
+
+        self.model.grid.place_agent(self, location)
+
+        self.position = location
+        return None
+
     def step(self):
         print("Hello world! I am agent: " + str(self.unique_id) +
               "\n my node id is: " + str(self.pos) +
@@ -80,30 +103,12 @@ class MobileAgent(MinimalAgent):
     def __int__(self, unique_id, model):
         super().__int__(unique_id, model)
 
-    current_location = None
-
-    def spawn(self, location: str = None, ) -> None:
-        """
-        Spawn the agent at an initial location on the spatial network.
-        Default location of the agent is a node
-        Args:
-            location : a node ID for the spatial network. If None, select a random node ID from the model
-
-        -------
-        Returns
-        None
-        """
-
-        if location == None:
-            location = self.model.random.sample(list(self.model.G),1)
-            location = location[0]
-
-        self.model.grid.place_agent(self, location)
-
-        self.current_location = location
-        return None
 
     def find_path(self, destination):
+        # Use the networkx library to find the shortest route from the position to the destination
+        path = nx.shortest_path(self.model.G, source = self.position, target = destination)
+        next_node = path[1]
+        return (next_node,path)
         pass
 
 class Citizen(MobileAgent):
