@@ -1,18 +1,30 @@
-# Scheduler Logic
+# Scheduler Approach
 This file contains the logic for the scheduler. The scheduler is responsible for controlling the order in which agents take actions in the model. The scheduler is also responsible for calling events that occur at certain times. 
 
 There are 2 approaches to the implementation of the schedule in the model. 
-- The first is similar to the built-in method, where the model has a step function which calls the scheduler, a separate definition of the scheduler where the selection and execution of agents is defined, and a separate definition of the events that occur at certain times. The second approach is to have the scheduler and the events in the same definition. 
-- The second approach is to have only a step function, and to define the entire logic of the scheduler inside this function.
-The pros and cons of this will be evaluated based on the complexity of the order of operations vs the complexity of the internal arrangement of the code. 
+- The first is using the building in staged activation scheduler. This would consolidate and make the order of operations easier to control.  
+- The second approach is to create a unique scheduler for each "phase" of the model and then inside the 'tick' of the model, to call each scheduler in turn as the turn order progresses. However, this means that each function would have to be careful to correctly extend the scheduler class.
+
+Need to evaluate which option is best. 
 
 Behaviour that are Likely to be impacted by the choice of scheduler implementation:
 - Modelling of the network congestion and the impact of the network congestion on the agents' ability to perform actions.
 - Whether some agents consistently get to perform actions before others.
 
+## Challenge 1: Modelling congestion
+Whether actions resolve successfully depends on counting the number of agents attempting an action. However this invovles first allowing all agents to select an action, then evaluating congestion and then finally passing information back to the agents based on the state of the network.  
+
+## Challenge 2: Order of execution: Random or consistent
+Does the 'queue' in which congestion and agent order resolve remain the same round to round or does it change randomly? 
+
+## Challenge 3: Multi tick actions
+Each action that takes more than 1 tick will need to be modelled as a state, or by changing how different schedulers load and discharge their step routines.
+
+# Requirements
+
 ## Required Sub-steps in the Scheduler
 A generic step of the model should include the following sub-steps:
-1. Resolve any external events that will impact the model. e.g. an earthquake occurs, a new agent is added to the model, an agent is removed from the model.
+1. Resolve any external events that will impact the model. e.g. an earthquake occurs, a new agent is added to the model, an agent is removed from the model. 
 2. Resolve internal model events such as an agent health deteriorating, an agent health improving, a building collapsing etc.
 3. Resolve the actions of the agents. This includes the following sub-steps:
    1. The agents evaluate their internal state e.g. "Am I in motion" "Am I injured" "Do I want social attention"
@@ -23,8 +35,27 @@ A generic step of the model should include the following sub-steps:
    6. The agents update their internal state based on the results that they are provided 
 4. Resolve the effects of any agent actions on the environment. e.g. "building stabilised", "ambulance dispatched" "Hospital bed occupied" etc.  
 
-## Challenge 1: Modelling congestion
-Whether actions resolve successfully depends on counting the number of agents attempting an action. However this invovles first allowing all agents to select an action, then evaluating congestion and then finally passing information back to the agents based on the state of the network.  
+**Summary:**
+1. External Events 
+2. Internal Events 
+3. Observation
+4. Decision 
+5. Action 
+6. Resolution
 
-## Challenge 2: Agent behaviour 
-Remove 
+## External Events 
+1. Tremor (Earthquake) -> Consequence chain
+When the initial earthquake or an aftershock 'hits' the event is triggered at the top of the execution chain.
+
+2. 
+
+
+## Internal Events
+
+## Observation
+
+## Decision
+
+## Action
+
+## Resolution
