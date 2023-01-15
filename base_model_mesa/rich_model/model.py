@@ -15,6 +15,7 @@ from agents import MinimalAgent, Buildings, MobileAgent
 
 class MinimalModel(Model):
     def __init__(self):
+
         self.schedule = time.RandomActivation(self)
         with open('street_network.data', 'rb') as file:
             self.G = pickle.load(file)
@@ -61,35 +62,6 @@ class MinimalModel(Model):
             return a
 
         return _create_agent
-
-    def spawn_one_agent(self, agent_type, location):
-        self.num_agents += 1
-        unique_id = f" {str(agent_type)}_{num_agents}"
-        a = agent_type(unique_id, self)
-        self.schedule.add(a)
-        self.agent_dictionary[a.unique_id] = a
-        self.grid.place_agent(a, self.random.choice(list(self.G)))
-
-    def spawn_agents(self):
-        list_of_random_nodes = self.random.sample(list(self.G), self.num_agents)
-        for i in range(self.num_agents):
-            a = MinimalAgent(i + 100000, self)
-            self.schedule.add(a)
-            print(list_of_random_nodes[i])
-            # add A to dictionary agent_dictionary with a key of unique id of the agent
-            self.agent_dictionary[a.unique_id] = a
-            self.grid.place_agent(a, list_of_random_nodes[i])
-
-        for i in range(self.num_agents):
-            a = Buildings(i + 200000, self)
-            self.schedule.add(a)
-            print(list_of_random_nodes[i])
-            self.grid.place_agent(a, list_of_random_nodes[i])
-
-        for i in range(self.num_agents):
-            a = MobileAgent(i + 300000, self)
-            self.schedule.add(a)
-            a.spawn(location=list_of_random_nodes[i])
 
     def step(self):
         print("This is step: " + str(self.schedule.steps))
