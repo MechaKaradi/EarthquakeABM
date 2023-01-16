@@ -12,6 +12,24 @@ import random
 
 from agents import MinimalAgent, Buildings, MobileAgent
 
+class SpatialNetwork(space.NetworkGrid):
+    def __init__(self, G) -> None:
+        super().__init__(G)
+        for node_id in self.G.nodes:
+            G.nodes[node_id]["buildings"] = list()
+    def place_agent(self, agent, node_id):
+        """Place an agent on the given node, and set its pos.
+        Args:
+            agent: Agent to place
+            node_id: Node ID of node to place agent on
+        """
+        if isinstance(agent, Buildings):
+            self.G.nodes[node_id]["buildings"].append(agent)
+        else:
+            self.G.nodes[node_id]["agent"].append(agent)
+
+        agent.pos = node_id
+
 
 class MinimalModel(Model):
     def __init__(self):
@@ -21,7 +39,7 @@ class MinimalModel(Model):
             self.G = pickle.load(file)
         # self.G = nx.relabel_nodes(self.G, {15012: 0}) """ No longer needed, incorporated into network creation
         # notebook"""
-        self.grid = space.NetworkGrid(self.G)
+        self.grid = SpatialNetwork(self.G)
         self.num_agents = 5
         #self.spawn_agents() "This line with a # for this (AttributeError: 'MinimalModel' object has no attribute 'spawn_agents')" Lets check this error soon
 

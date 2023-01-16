@@ -207,4 +207,49 @@ class Citizen(MobileAgent):
         self.health = health
         self.trapped = trapped
 
-    pass
+        self.home = None
+
+
+
+    def get_injured(self, severity):
+        """reduces the health of the Citizen in response to external events
+
+        When an earthquake occurs, a building collapses, or when there is some other external cause for damage
+
+        Parameters
+        ----------
+        severity: integer value between 0 and 12 representing the possible total value of damage that the citizen can suffer. Determined and passed by the calling event.
+
+        Returns
+        -------
+
+        """
+        self.health -= self.model.random.randint(0,severity)
+
+    @property
+    def deteriorate_health(self):
+        """internal process of deterioration over time
+
+        RPM , Mean time to next level in mins
+        12 , 90
+        11 , 90
+        10 , 60
+        9 , 60
+        8 , 60
+        7 , 30
+        6 , 15
+        5 , 15
+        4 , 15
+        3 , 15
+        2 , 10
+        1 , 5
+        0 , 0
+
+        Returns
+        -------
+        None
+        """
+        if self.health != 13:
+            self.health -= 1
+        return None
+
