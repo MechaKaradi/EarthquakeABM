@@ -23,8 +23,12 @@ class MinimalModel(Model):
         # notebook"""
         self.grid = space.NetworkGrid(self.G)
         self.num_agents = 5
-        self.spawn_agents()
+        #self.spawn_agents() "This line with a # for this (AttributeError: 'MinimalModel' object has no attribute 'spawn_agents')" Lets check this error soon
 
+        create_building = self.create_agents(Buildings)
+        for i in range(5):
+            create_building(i)
+            
         model_metrics = {
             "Number of Agents": count_agents
         }

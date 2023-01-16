@@ -19,7 +19,7 @@ class NetworkModule_xy(VisualizationElement):
     ):
         self.package_includes = [D3_JS_FILE]
         NetworkModule_xy.local_includes = ["NetworkModule_xy_d3.js"]
-        NetworkModule_xy.local_dir = "C:/Users/Kaninik/Programming/MESA/Repository/EarthquakeABM-1211/base_model_mesa/rich_model"
+        NetworkModule_xy.local_dir = "C:/Users/bonro/OneDrive - Delft University of Technology/COSEM/Q2 2022 2023/SEN1211 Agent-based Modelling/Claxxius/EarthquakeABM-1211/base_model_mesa/rich_model"
         self.portrayal_method = portrayal_method
         self.canvas_height = canvas_height
         self.canvas_width = canvas_width

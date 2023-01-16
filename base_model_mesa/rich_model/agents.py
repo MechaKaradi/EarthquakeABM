@@ -71,9 +71,6 @@ class Buildings(MinimalAgent):
     Each Building has a 'damageFromTremor' method which responds to an earthquake call at the beginning of a tick
     when `damageFromTremor` is called, it has a probability to increase the building damage, and a probability to
     injure or trap citizens on the node in the building.
-
-    TODO: Create a dictionary
-
     """
 
     def __init__(self, unique_id, model, initial_state=0, base_capacity=0):
@@ -86,12 +83,36 @@ class Buildings(MinimalAgent):
         base_capacity : int
         """
         super().__init__(unique_id, model)
-        print(self.color)
-        state = initial_state
-        capacity = base_capacity
+        self.state = initial_state
+        self.capacity = base_capacity
 
-        def step(self):
-            super().step(self)
+    def damage_from_tremor(self, intensity: float) -> None:
+        """
+        Method to simulate the damage that the building will suffer from the earthquake. The method should update the 
+        building's `damageState` attribute based on the intensity of the earthquake.
+        """
+        pass
+
+    def is_full(self) -> bool:
+        """
+        Method that returns True if the building is full (i.e., the number of citizens in the building is equal to its
+        capacity) and False otherwise.
+        """
+        pass
+
+    def add_citizen(self, citizen: Citizen) -> None:
+        """
+        Method to add a citizen to the building. The method should check if the building is full before adding the
+        citizen.
+        """
+        pass
+
+    def remove_citizen(self, citizen: Citizen) -> None:
+        """
+        Method to remove a citizen from the building.
+        """
+        pass
+
 
 
 class MobileAgent(MinimalAgent):
