@@ -86,13 +86,60 @@ class Buildings(MinimalAgent):
         self.state = initial_state
         self.capacity = base_capacity
 
-    def damage_from_tremor(self, intensity: float) -> None:
+        self.strength = model.random.gauss(7,1)
+        """Defines the strength of the building. 
+        The strength is a random variable with a mean of 7 and a standard deviation of 1. This implies approximately 97% of buildings will have a strength between 5 and 9.  
         """
+
+    def damage_from_tremor(self, intensity: float) -> None:
+        """Determines the damage from a tremor.
         Method to simulate the damage that the building will suffer from the earthquake. The method should update the 
         building's `damageState` attribute based on the intensity of the earthquake.
-        """
-        pass
 
+        If the building is already in a collapsed state, the method should do nothing.
+        If the building is in an unsafe state, the method should direcly chagne the state to collapsed.
+        If the building is in a damaged state, the probability of collapsing the building should be 2 times the probability if the building is in a serviceable state.
+
+        If the building is in a serviceable state, the probability of collapsing the building depends on the intensity.
+        If the intensiity is less than the building's strength, the probability of damaging the building is 0.
+         If the difference between the intensity and the building's strength is greater than 2, the building is moved to a collapsed state.
+         If the difference in between the intensity and the building's strength is between 0 and 2 a random number is generated between 0 and 1. If the number is between 0 and 0.1, the building is moved to an unsafe state.
+        If the number is between 0.1 and 0.5, the building is moved to a damaged state.
+        If the number is between 0.5 and 1, the building is moved to a serviceable state.
+
+        Parameters
+        ----------
+        intensity : the intensity of the earthquake expressed as a magnitude. Expected to be between 5 and 9
+
+        """
+
+        if self.state == 3: #if the building is already collapsed, do nothing
+            return None
+
+        if self.state == 2: #if the building is unsafe, it will collapse
+            self.state = 3
+            return None
+
+        # if the building is serviceable, the probability of collapsing depends on the intensity
+        if self.state == 0 or self.state == 1:
+            if intensity < self.strength:
+                return None
+
+            if intensity - self.strength >= 2:
+                self.state = 3
+                return None
+
+            if intensity - self.strength < 2:
+                rand = self.model.random.random()
+                rand = rand * (self.state + 1) #the probability of collapsing is 2 times the probability of damaging the building
+                if rand < 0.1:
+                    self.state = 2
+                    return None
+                elif rand < 0.5:
+                    self.state = 1
+                    return None
+                else:
+                    return None
     def is_full(self) -> bool:
         """
         Method that returns True if the building is full (i.e., the number of citizens in the building is equal to its
@@ -100,14 +147,18 @@ class Buildings(MinimalAgent):
         """
         pass
 
-    def add_citizen(self, citizen: Citizen) -> None:
+    def add_citizen(self, citizen) -> None:
         """
         Method to add a citizen to the building. The method should check if the building is full before adding the
         citizen.
+
+        Parameters
+        ----------
+        citizen : object
         """
         pass
 
-    def remove_citizen(self, citizen: Citizen) -> None:
+    def remove_citizen(self, citizen) -> None:
         """
         Method to remove a citizen from the building.
         """

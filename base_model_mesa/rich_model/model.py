@@ -25,10 +25,6 @@ class MinimalModel(Model):
         self.num_agents = 5
         #self.spawn_agents() "This line with a # for this (AttributeError: 'MinimalModel' object has no attribute 'spawn_agents')" Lets check this error soon
 
-        create_building = self.create_agents(Buildings)
-        for i in range(5):
-            create_building(i)
-            
         model_metrics = {
             "Number of Agents": count_agents
         }
@@ -59,7 +55,7 @@ class MinimalModel(Model):
             model.schedule.add(a)
 
             agent_id += 1
-            model.agent_dictionary[a.unique_id] = a
+            model.agent_dictionary.update({a.unique_id:a})
 
             a.spawn(location=location)
 
