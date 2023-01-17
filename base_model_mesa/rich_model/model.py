@@ -17,7 +17,7 @@ class SpatialNetwork(space.NetworkGrid):
         super().__init__(G)
         for node_id in self.G.nodes:
             G.nodes[node_id]["buildings"] = list()
-    def place_agent(self, agent, node_id):
+    def place_agent_node(self, agent, node_id):
         """Place an agent on the given node, and set its pos.
         Args:
             agent: Agent to place
@@ -32,6 +32,7 @@ class SpatialNetwork(space.NetworkGrid):
 
 
 class MinimalModel(Model):
+    G: nx.Graph = None
     def __init__(self):
 
         self.schedule = time.RandomActivation(self)
@@ -65,11 +66,21 @@ class MinimalModel(Model):
         agent_id = 0
         model = self
 
-        def _create_agent(location):
+        def _create_agent(location, **kwargs):
+            """ Initialize and agent and add it to the model schedule?
+
+            Parameters
+            ----------
+            location : int | Agent , passed the agents spawn method
+
+            Returns
+            -------
+            object: the agent object created by the method
+            """
             nonlocal agent_id
             nonlocal model
             unique_id = f"{agent_type_str}_{agent_id}"
-            a = agent_type(unique_id, model)
+            a = agent_type(unique_id, model, **kwargs)
             model.schedule.add(a)
 
             agent_id += 1
