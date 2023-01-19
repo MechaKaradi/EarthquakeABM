@@ -92,6 +92,18 @@ class MinimalModel(Model):
 
         return _create_agent
 
+    def buildings_to_nodes(self, number_of_buildings):
+        create_building = self.create_agents(Buildings)
+        i = 0
+        while i < number_of_buildings:
+            node_id = self.random.choice(list(self.G.nodes))
+            num = self.random.randint(0, 5)
+            for j in range(num):
+                create_building(location=node_id)
+            i += num
+        return f'Created: {number_of_buildings}'
+
+
     def step(self):
         print("This is step: " + str(self.schedule.steps))
         self.schedule.step()
