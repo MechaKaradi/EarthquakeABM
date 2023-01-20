@@ -50,7 +50,7 @@ class MinimalAgent(Agent):
             self.model.grid.place_agent_node(self, location)
 
         elif isinstance(location, Buildings):
-            location.add_agent(self)
+            location.add_citizen(self)
 
         elif location is None:
             raise ValueError("The location of the agent is not specified")
@@ -64,12 +64,12 @@ class MinimalAgent(Agent):
               "\n my color is: " + str(self.color))
 
 
-class StaticAgent(MinimalAgent):
-    def init(self, unique_id, model):
-        super().__init__(unique_id, model)
-
-    def place(self, location):
-        self.model.grid.place_agent_node(self, location)
+# class StaticAgent(MinimalAgent):
+#     def init(self, unique_id, model):
+#         super().__init__(unique_id, model)
+#
+#     def place(self, location):
+#         self.model.grid.place_agent_node(self, location)
 
 
 class Buildings(MinimalAgent):
@@ -79,27 +79,28 @@ class Buildings(MinimalAgent):
 
     """
 
-    initial_state: int
-    capacity: int
-
-    def __init__(self, unique_id, model, initial_state=0, capacity=0):
+    def __init__(self, unique_id, model, initial_state = 0, initial_capacity = None):
         """
         Parameters
         ----------
         unique_id : int, passed from the 'model' object/class when the model object is initialized and the agent
         object is called
         initial_state : int
-        base_capacity : int
+        initial_capacity : int | None
         """
         super().__init__(unique_id, model)
         self.state = initial_state
-        self.capacity = capacity
+        self.capacity = initial_capacity if initial_capacity != None else model.random.choice([1, 5, 10, 25, 50, 100,
+                                                                                             250, 500])
+
+        self.occupants: list[Citizen] = []
+        self.residents: list[Citizen] = []
 
         self.strength = model.random.gauss(7, 1)
         """Defines the strength of the building. The strength is a random variable with a mean of 7 and a standard 
         deviation of 1. This implies approximately 97% of buildings will have a strength between 5 and 9. """
 
-    def damage_from_tremor(self, intensity: float) -> None:
+    def damage_from_tremor(self, intensity: float) -> int:
         """Determines the damage from a tremor.
         Each building has a `damageState`:
             0: Serviceable
@@ -126,23 +127,29 @@ class Buildings(MinimalAgent):
         ----------
         intensity : the intensity of the earthquake expressed as a magnitude. Expected to be between 5 and 9
 
+        Returns
+        -------
+        int : the increase in damage state of the building in number of levels
+
         """
+        in_state = self.state # the initial state of the building
+        x = lambda self : self.state if in_state < 3 else 0
 
         if self.state == 3:  # if the building is already collapsed, do nothing
-            return None
+            return x(self)
 
         if self.state == 2:  # if the building is unsafe, it will collapse
             self.state = 3
-            return None
+            return x(self)
 
         # if the building is serviceable, the probability of collapsing depends on the intensity
         if self.state == 0 or self.state == 1:
             if intensity < self.strength:
-                return None
+                return x(self)
 
             if intensity - self.strength >= 2:
                 self.state = 3
-                return None
+                return x(self)
 
             if intensity - self.strength < 2:
                 rand = self.model.random.random()
@@ -151,15 +158,42 @@ class Buildings(MinimalAgent):
                 # the building
                 if rand < 0.1:
                     self.state = 2
-                    return None
+                    return x(self)
                 elif rand < 0.5:
                     self.state = 1
-                    return None
+                    return x(self)
                 else:
-                    return None
-    # Create a list object to store the occupants of the building
-    occupants: list[Agent] = []
+                    return x(self)
 
+    def earthquake(self, intensity: float) -> None:
+        """Simulates the earthquake on the building.
+        The method should call the `damage_from_tremor` method to determine the damage the building will suffer from
+        the earthquake. It then calls the `get_injured` method of each occupant of the building to determine the
+        injuries.
+
+        Parameters
+        ----------
+        intensity : the intensity of the earthquake expressed as a magnitude. Expected to be between 5 and 9
+
+        Returns
+        -------
+        None
+
+        """
+        damage = self.damage_from_tremor(intensity)
+        for occupant in self.occupants:
+            occupant.get_injured(3 + damage*3)
+
+    # Create a list object to store the occupants of the building
+
+    def assign_home(self, agent: Agent) -> None:
+        """ Assigns the agents as a Resident of the building
+        Parameters
+        ----------
+        agent : Agent
+        """
+        self.residents.append(agent)
+        return None
 
 
     def is_full(self) -> bool:
@@ -225,6 +259,7 @@ class Citizen(MobileAgent):
     If the citizen health value goes to 0 they become a corpse.
     Each citizen is a 'resident' of the city and has a `Residence(Building)` which they are assigned to as their 'home'.
     """
+    home: Buildings
 
     def __init__(self, unique_id, model, health=13, trapped=False):
         """
@@ -240,6 +275,39 @@ class Citizen(MobileAgent):
         self.trapped = trapped
 
         self.home = None
+
+    def spawn(self, location: int | Agent = None, ) -> None:
+        """
+        Method to spawn a citizen in the model. The method should assign the citizen to a building and add the citizen
+        to the building's list of occupants. It should extend the `spawn` method of the parent class.
+        If the location is not specified, the method should call the parent's spawn method.
+        If the location is an integer, the method should leave the home attribute unassigned and call the parent
+        class's spawn method.
+        If the location is a Buildings agent, the method should assign the citizen to the building using the
+        building's resident method.
+        Parameters
+        ----------
+        location : int | Agent
+        """
+        if location is None:
+            super().spawn()
+        elif isinstance(location, int):
+            super().spawn(location)
+        elif isinstance(location, Buildings):
+            self.home = location
+            location.assign_home(self)
+            super().spawn(location)
+
+    def move(self, destination):
+        """
+        Method to move the agent to a new node in the network. The method should update the agent's `position` attribute
+        to the new node.
+        Parameters
+        ----------
+        destination : the node to which the agent is moving
+        """
+        pass
+
 
     def get_injured(self, severity):
         """reduces the health of the Citizen in response to external events

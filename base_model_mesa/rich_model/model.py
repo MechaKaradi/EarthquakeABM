@@ -1,3 +1,5 @@
+from pyclbr import Class
+
 from mesa import Agent, Model
 import mesa.time as time
 import mesa.space as space
@@ -10,7 +12,8 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import random
 
-from agents import MinimalAgent, Buildings, MobileAgent
+from agents import MinimalAgent, Buildings, MobileAgent, Citizen
+
 
 class SpatialNetwork(space.NetworkGrid):
     def __init__(self, G) -> None:
@@ -35,14 +38,13 @@ class MinimalModel(Model):
     G: nx.Graph = None
     def __init__(self):
 
+        self.MINIMUM_RESIDENCY = 50 # minimum percentage of building capacity which is occupied
         self.schedule = time.RandomActivation(self)
         with open('street_network.data', 'rb') as file:
             self.G = pickle.load(file)
         # self.G = nx.relabel_nodes(self.G, {15012: 0}) """ No longer needed, incorporated into network creation
         # notebook"""
         self.grid = SpatialNetwork(self.G)
-        self.num_agents = 5
-        #self.spawn_agents() "This line with a # for this (AttributeError: 'MinimalModel' object has no attribute 'spawn_agents')" Lets check this error soon
 
         model_metrics = {
             "Number of Agents": count_agents
@@ -62,12 +64,13 @@ class MinimalModel(Model):
     agent_dictionary = {}
 
     # Create a closure to create agents with different classes but sequential unique ids
-    def create_agents(self, agent_type):
+    def create_agents(self, agent_type: Class) -> classmethod:
         agent_type_str = str(agent_type.__name__)
         # set agent_id to an integer representation of the agent_type
         agent_id = 0
-        model = self
 
+        model = self
+        model.agent_dictionary[agent_type_str] = list()
         def _create_agent(location, **kwargs):
             """ Initialize and agent and add it to the model schedule?
 
@@ -81,6 +84,7 @@ class MinimalModel(Model):
             """
             nonlocal agent_id
             nonlocal model
+            nonlocal agent_type_str
             unique_id = f"{agent_type_str}_{agent_id}"
             a = agent_type(unique_id, model, **kwargs)
             model.schedule.add(a)
@@ -88,8 +92,8 @@ class MinimalModel(Model):
             agent_id += 1
 
             # add a to a list located in agent dictionary at the key of agent_type_str
-            if agent_type_str not in model.agent_dictionary:
-                model.agent_dictionary[agent_type_str] = list()
+            # if agent_type_str not in model.agent_dictionary.keys():
+
             model.agent_dictionary[agent_type_str].append(a)
 
             # place the agent on the grid
@@ -110,6 +114,22 @@ class MinimalModel(Model):
             i += num
         return f'Created: {i} buildings'
 
+    def citizens_to_buildings(self, number_of_citizens: int):
+        create_citizen = self.create_agents(Citizen)
+        num = 0
+        while num <= number_of_citizens:
+            building = self.random.choice(list(self.agent_dictionary["Buildings"]))
+            i = len(building.residents)
+            building_residents_number = round(building.capacity * self.random.randint(self.MINIMUM_RESIDENCY,100)/100, None)
+
+            while i <= building_residents_number:
+                create_citizen(location=building)
+                i += 1
+
+            num += i
+
+        return f'Created: {num} citizens'
+
 
     def step(self):
         print("This is step: " + str(self.schedule.steps))
@@ -127,7 +147,7 @@ class MinimalModel(Model):
 
 
 def count_agents(self):
-    return self.num_agents
+    return len(self.schedule.agents)
 
 
 """Run Model"""
