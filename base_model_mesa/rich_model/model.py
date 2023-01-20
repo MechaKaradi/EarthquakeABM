@@ -50,6 +50,8 @@ class MinimalModel(Model):
 
         agent_metrics = {
             "Agent ID": "unique_id",
+            # lambda function to get the pos attribute of the node with position agent.position
+            "Agent Position": lambda a: a.model.grid.G.nodes[a.position]["pos"],
             "Agent Colour": "color",
             "family": "agentFamily",
         }
@@ -61,7 +63,7 @@ class MinimalModel(Model):
 
     # Create a closure to create agents with different classes but sequential unique ids
     def create_agents(self, agent_type):
-        agent_type_str = str(agent_type)
+        agent_type_str = str(agent_type.__name__)
         # set agent_id to an integer representation of the agent_type
         agent_id = 0
         model = self
@@ -84,8 +86,13 @@ class MinimalModel(Model):
             model.schedule.add(a)
 
             agent_id += 1
-            model.agent_dictionary.update({a.unique_id:a})
 
+            # add a to a list located in agent dictionary at the key of agent_type_str
+            if agent_type_str not in model.agent_dictionary:
+                model.agent_dictionary[agent_type_str] = list()
+            model.agent_dictionary[agent_type_str].append(a)
+
+            # place the agent on the grid
             a.spawn(location=location)
 
             return a
@@ -101,7 +108,7 @@ class MinimalModel(Model):
             for j in range(num):
                 create_building(location=node_id)
             i += num
-        return f'Created: {number_of_buildings}'
+        return f'Created: {i} buildings'
 
 
     def step(self):

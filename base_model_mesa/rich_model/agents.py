@@ -26,7 +26,7 @@ class MinimalAgent(Agent):
     def __init__(self, unique_id, model: MinimalModel):
         super().__init__(unique_id, model)
 
-        self.agentFamily = str(type(self))
+        self.agentFamily = str(type(self).__name__)
         self.color = '#%02x%02x%02x' % (random.randrange(0, 256, 16),
                                         random.randrange(0, 256, 16),
                                         random.randrange(0, 256, 16)
