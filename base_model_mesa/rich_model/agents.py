@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 from mesa import Agent
-from agents import Citizen
 
 import mesa.time as time
 import mesa.space as space
