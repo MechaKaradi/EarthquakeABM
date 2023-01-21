@@ -89,13 +89,28 @@ class Ambulance(MinimalAgent):
         # Move the ambulance to the patient's location
         self.model.grid.move_agent(self, patient.pos)
         
+        # Find the shortest path to the hospital
+        hospital = self.model.get_closest_hospital(self.patient.pos)
+        path = self.find_path(hospital)
+
+        # Move the ambulance towards the hospital one step at a time
+        for next_node in path[1:]:
+            self.model.grid.move_agent(self, next_node)
+
+
     def step(self):
         if self.patient is not None:
-            # Move the ambulance to the hospital
+            # Find the shortest path to the hospital
             hospital = self.model.get_closest_hospital(self.patient.pos)
-            self.model.grid.move_agent(self, hospital)
-            self.patient.health_status = "treated"
-            self.patient = None
+            path = self.find_path(hospital)
+            # Move the ambulance one step towards the hospital
+            next_node = path[1]
+            self.model.grid.move_agent(self, next_node)
+            # If the ambulance has reached the hospital, update the patient's health status
+            if self.pos == hospital:
+                self.patient.health_status = "treated"
+                self.patient = None
+
         
         
         

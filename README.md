@@ -57,3 +57,11 @@ New features added
 I also added a way to create instances of the Citizen and Ambulance classes and add them to the model's schedule in the create_agents method in the MinimalModel class.
 It will need to import the Citizen class from the agents.py file and create an instance of the Ambulance class and add it to the model's schedule in the main script that runs the model.
 Also can use the transport_patient method on the Ambulance class to transport a Citizen object to the closest hospital in the simulation.
+
+
+21.10:10JAN23
+
+In the agents.py file, I have made changes to the Ambulance class to make it use the find_path function from the MobileAgent class to move from the patient's location to the closest hospital.
+Specifically, I have added new code in the transport_patient and step methods to first find the shortest path to the hospital and then move the ambulance towards the hospital one step at a time. I have also added an import statement at the top of the script to import the MobileAgent class.
+Additionally, in the step method, I have added a check to see if the ambulance has reached the hospital and if so, the patient's health status is updated to "treated" and the patient is set to None.
+Please note that these changes should improve the accuracy of the ambulance's movement to the hospital, but it's important to keep testing and monitoring the performance of the model to ensure it is functioning as expected.
