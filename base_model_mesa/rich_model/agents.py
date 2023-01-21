@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 from mesa import Agent
+from agents import Citizen
+
 import mesa.time as time
 import mesa.space as space
 from mesa.datacollection import DataCollector
@@ -63,7 +65,41 @@ class MinimalAgent(Agent):
               "\n my node id is: " + str(self.pos) +
               "\n my color is: " + str(self.color))
 
+class Citizen(MinimalAgent):
+    def __init__(self, unique_id, model, initial_state = "healthy"):
+        super().__init__(unique_id, model)
+        self.state = initial_state
+        self.transported = False
+        self.is_injured = False
+        
+    def set_health_status(self, status: str):
+        """
+        set the health status of the citizen
+        """
+        self.health_status = status
 
+
+class Ambulance(MinimalAgent):
+    def __init__(self, unique_id, model):
+        super().__init__(unique_id, model)
+        self.patient = None
+    
+    def transport_patient(self, patient: Citizen):
+        self.patient = patient
+        self.patient.transported = True
+        # Move the ambulance to the patient's location
+        self.model.grid.move_agent(self, patient.pos)
+        
+    def step(self):
+        if self.patient is not None:
+            # Move the ambulance to the hospital
+            hospital = self.model.get_closest_hospital(self.patient.pos)
+            self.model.grid.move_agent(self, hospital)
+            self.patient.health_status = "treated"
+            self.patient = None
+        
+        
+        
 # class StaticAgent(MinimalAgent):
 #     def init(self, unique_id, model):
 #         super().__init__(unique_id, model)

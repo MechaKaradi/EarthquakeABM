@@ -129,6 +129,20 @@ class MinimalModel(Model):
             num += i
 
         return f'Created: {num} citizens'
+   
+    def get_closest_hospital(self, location):
+        """
+        Find the closest hospital to a given location
+        """
+        hospitals = self.agent_dictionary["Hospital"]
+        closest_hospital = None
+        closest_distance = float("inf")
+        for hospital in hospitals:
+            distance = nx.shortest_path_length(self.G, location, hospital.pos)
+            if distance < closest_distance:
+                closest_distance = distance
+                closest_hospital = hospital
+        return closest_hospital
 
 
     def step(self):
