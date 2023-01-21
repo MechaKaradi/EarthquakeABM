@@ -117,18 +117,20 @@ class MinimalModel(Model):
     def citizens_to_buildings(self, number_of_citizens: int):
         create_citizen = self.create_agents(Citizen)
         num = 0
+        building_iterator = list(self.agent_dictionary["Buildings"])
+        self.random.shuffle(building_iterator)
+        b = 0
         while num <= number_of_citizens:
-            building = self.random.choice(list(self.agent_dictionary["Buildings"]))
+            building = building_iterator[b]
             i = len(building.residents)
             building_residents_number = round(building.capacity * self.random.randint(self.MINIMUM_RESIDENCY,100)/100, None)
-
             while i <= building_residents_number:
                 create_citizen(location=building)
                 i += 1
-
+            b += 1
             num += i
 
-        return f'Created: {num} citizens'
+        return f'Created: {num} citizens in {b} buildings'
 
 
     def step(self):

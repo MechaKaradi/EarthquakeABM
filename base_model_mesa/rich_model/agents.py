@@ -22,7 +22,7 @@ import random
 
 class MinimalAgent(Agent):
     model: MinimalModel
-
+    
     def __init__(self, unique_id, model: MinimalModel):
         super().__init__(unique_id, model)
 
