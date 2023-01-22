@@ -146,8 +146,8 @@ class Buildings(MinimalAgent):
         self.occupants: list[Citizen] = []
         self.residents: list[Citizen] = []
 
-        self.strength = model.random.gauss(7, 1)
-        """Defines the strength of the building. The strength is a random variable with a mean of 7 and a standard 
+        self.strength = model.random.gauss(8, 1)
+        """Defines the strength of the building. The strength is a random variable with a mean of 8 and a standard 
         deviation of 1. This implies approximately 97% of buildings will have a strength between 5 and 9. """
 
     def damage_from_tremor(self, intensity: float) -> int:
