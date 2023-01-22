@@ -295,10 +295,6 @@ class MobileAgent(MinimalAgent):
         pass
 
 
-class Ambulance(MobileAgent):
-    pass
-
-
 class Citizen(MobileAgent):
     """
     A citizen is the parent class for all agents that represent residents of the city that are potentially affected
