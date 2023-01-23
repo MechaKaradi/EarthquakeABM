@@ -1,3 +1,4 @@
+from collections import defaultdict
 from pyclbr import Class
 
 from mesa import Agent, Model
@@ -39,23 +40,52 @@ class SpatialNetwork(space.NetworkGrid):
         node_id = agent.pos
         self.G.nodes[node_id]["agent"].remove(agent)
 
+class StagedAndTypedTime(time.BaseScheduler):
+    def __init__(self, model):
+        super().__init__(model)
+        self.agents_by_type = defaultdict(dict)
+    def add(self, agent: MinimalAgent) -> None:
+        """
+        Add an Agent object to the schedule
+
+        Args:
+            agent: An Agent to be added to the schedule.
+        """
+        super().add(agent)
+        agent_class: str = agent.agentFamily
+        self.agents_by_type[agent_class][agent.unique_id] = agent
+
+    def remove(self, agent: MinimalAgent) -> None:
+        """
+        Remove all instances of a given agent from the schedule.
+        """
+
+        del self._agents[agent.unique_id]
+
+        agent_class: str = agent.agentFamily
+        del self.agents_by_type[agent_class][agent.unique_id]
+
 
 class MinimalModel(Model):
     G: nx.Graph = None
 
     def __init__(self):
-
+        # Parameters
         self.MINIMUM_RESIDENCY = 50  # minimum percentage of building capacity which is occupied
-        self.schedule = time.RandomActivation(self)
+
+        # Create time
+        self.schedule = StagedAndTypedTime(self)
+
+        # Create Space
         with open('street_network.data', 'rb') as file:
             self.G = pickle.load(file)
 
         self.grid = SpatialNetwork(self.G)
 
+        # Create Data Collector
         model_metrics = {
             "Number of Agents": count_agents
         }
-
         agent_metrics = {
             "Agent ID": "unique_id",
             # lambda function to get the pos attribute of the node with position agent.position
@@ -64,19 +94,17 @@ class MinimalModel(Model):
             "family": "agentFamily",
         }
         self.datacollector = DataCollector(model_reporters=model_metrics, agent_reporters=agent_metrics)
-        self.running = True
         self.datacollector.collect(self)
 
-    agent_dictionary = {}
+        self.running = True
 
     # Create a closure to create agents with different classes but sequential unique ids
     def create_agents(self, agent_type: Class) -> classmethod:
         agent_type_str = str(agent_type.__name__)
         # set agent_id to an integer representation of the agent_type
         agent_id = 0
-        agent_type_created: Class = agent_type
+        agent_type_created = agent_type
         model = self
-        model.agent_dictionary[agent_type_str] = list()
 
         def _create_agent(location, **kwargs):
             """ Initialize and agent and add it to the model schedule?
@@ -95,14 +123,10 @@ class MinimalModel(Model):
             nonlocal agent_type_created
             unique_id = f"{agent_type_str}_{agent_id}"
             a = agent_type_created(unique_id, model, **kwargs)
+
             model.schedule.add(a)
 
             agent_id += 1
-
-            # add a to a list located in agent dictionary at the key of agent_type_str
-            # if agent_type_str not in model.agent_dictionary.keys():
-
-            model.agent_dictionary[agent_type_str].append(a)
 
             # place the agent on the grid
             a.spawn(location=location)
@@ -125,7 +149,7 @@ class MinimalModel(Model):
     def citizens_to_buildings(self, number_of_citizens: int):
         create_citizen = self.create_agents(Citizen)
         num = 0
-        building_iterator = list(self.agent_dictionary["Building"])
+        building_iterator = list(self.schedule.agents_by_type["Building"].values())
         self.random.shuffle(building_iterator)
         b = 0
         while num <= number_of_citizens:
@@ -144,7 +168,7 @@ class MinimalModel(Model):
         """
         Find the closest hospital to a given location
         """
-        hospitals = self.agent_dictionary["Hospital"]
+        hospitals = self.schedule.agents_by_type["Hospital"]
         closest_hospital = None
         closest_distance = float("inf")
         for hospital in hospitals:
@@ -158,7 +182,7 @@ class MinimalModel(Model):
         """
         Find the closest hospital to a given location
         """
-        hospitals = self.agent_dictionary["Hospital"]
+        hospitals = self.schedule.agents_by_type["Hospital"]
         closest_hospital = None
         closest_distance = float("inf")
         for hospital in hospitals:
