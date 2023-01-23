@@ -7,6 +7,7 @@ import mesa.space as space
 from mesa.datacollection import DataCollector
 
 from typing import TYPE_CHECKING
+
 if TYPE_CHECKING:
     # We ensure that these are not imported during runtime to prevent cyclic
     # dependency.
@@ -20,10 +21,9 @@ import matplotlib.pyplot as plt
 import random
 
 
-
 class MinimalAgent(Agent):
     model: MinimalModel
-    
+
     def __init__(self, unique_id, model: MinimalModel):
         super().__init__(unique_id, model)
 
@@ -34,6 +34,7 @@ class MinimalAgent(Agent):
                                         )
 
     position: int | Agent = None
+
     # positions of the agents may be a node or a building
 
     def spawn(self, location: int | Agent = None, ) -> None:
@@ -63,73 +64,15 @@ class MinimalAgent(Agent):
         print("Hello world! I am agent: " + str(self.unique_id) +
               "\n my node id is: " + str(self.pos) +
               "\n my color is: " + str(self.color))
-
-class Citizen(MinimalAgent):
-    def __init__(self, unique_id, model, initial_state = "healthy"):
-        super().__init__(unique_id, model)
-        self.state = initial_state
-        self.transported = False
-        self.is_injured = False
-        
-    def set_health_status(self, status: str):
-        """
-        set the health status of the citizen
-        """
-        self.health_status = status
-
-
-class Ambulance(MinimalAgent):
-    def __init__(self, unique_id, model):
-        super().__init__(unique_id, model)
-        self.patient = None
-    
-    def transport_patient(self, patient: Citizen):
-        self.patient = patient
-        self.patient.transported = True
-        # Move the ambulance to the patient's location
-        self.model.grid.move_agent(self, patient.pos)
-        
-        # Find the shortest path to the hospital
-        hospital = self.model.get_closest_hospital(self.patient.pos)
-        path = self.find_path(hospital)
-
-        # Move the ambulance towards the hospital one step at a time
-        for next_node in path[1:]:
-            self.model.grid.move_agent(self, next_node)
-
-
-    def step(self):
-        if self.patient is not None:
-            # Find the shortest path to the hospital
-            hospital = self.model.get_closest_hospital(self.patient.pos)
-            path = self.find_path(hospital)
-            # Move the ambulance one step towards the hospital
-            next_node = path[1]
-            self.model.grid.move_agent(self, next_node)
-            # If the ambulance has reached the hospital, update the patient's health status
-            if self.pos == hospital:
-                self.patient.health_status = "treated"
-                self.patient = None
-
-        
-        
-        
-# class StaticAgent(MinimalAgent):
-#     def init(self, unique_id, model):
-#         super().__init__(unique_id, model)
-#
-#     def place(self, location):
-#         self.model.grid.place_agent_node(self, location)
-
-
 class Buildings(MinimalAgent):
     """
     state : int; the damage state of the building
     capacity : int; the maximum number of occupants that the building can hold
 
     """
+    allowed_capacity = [1, 5, 10, 25, 50, 100, 250, 500]
 
-    def __init__(self, unique_id, model, initial_state = 0, initial_capacity = None):
+    def __init__(self, unique_id, model, initial_state=0, initial_capacity=None):
         """
         Parameters
         ----------
@@ -140,8 +83,10 @@ class Buildings(MinimalAgent):
         """
         super().__init__(unique_id, model)
         self.state = initial_state
-        self.capacity = initial_capacity if initial_capacity != None else model.random.choice([1, 5, 10, 25, 50, 100,
-                                                                                             250, 500])
+        if initial_capacity is not None:
+            self.capacity = initial_capacity
+        else:
+            self.capacity = model.random.choice(self.allowed_capacity)
 
         self.occupants: list[Citizen] = []
         self.residents: list[Citizen] = []
@@ -183,7 +128,9 @@ class Buildings(MinimalAgent):
 
         """
         in_state = self.state # the initial state of the building
-        x = lambda self : self.state if in_state < 3 else 0
+        def x(self):
+            var = self.state if in_state < 3 else 0
+            return var
 
         if self.state == 3:  # if the building is already collapsed, do nothing
             return x(self)
@@ -195,6 +142,7 @@ class Buildings(MinimalAgent):
         # if the building is serviceable, the probability of collapsing depends on the intensity
         if self.state == 0 or self.state == 1:
             if intensity < self.strength:
+                # if the intensity is less than the building's strength, nothing happens
                 return x(self)
 
             if intensity - self.strength >= 2:
@@ -204,7 +152,7 @@ class Buildings(MinimalAgent):
             if intensity - self.strength < 2:
                 rand = self.model.random.random()
                 rand = rand * (
-                            self.state + 1)  # the probability of collapsing is 2 times the probability of damaging
+                        self.state + 1)  # the probability of collapsing is 2 times the probability of damaging
                 # the building
                 if rand < 0.1:
                     self.state = 2
@@ -232,11 +180,11 @@ class Buildings(MinimalAgent):
         """
         damage = self.damage_from_tremor(intensity)
         for occupant in self.occupants:
-            occupant.get_injured(3 + damage*3)
+            occupant.get_injured(3 + damage * 3)
 
     # Create a list object to store the occupants of the building
 
-    def assign_home(self, agent: Agent) -> None:
+    def assign_home(self, agent: Citizen) -> None:
         """ Assigns the agents as a Resident of the building
         Parameters
         ----------
@@ -244,7 +192,6 @@ class Buildings(MinimalAgent):
         """
         self.residents.append(agent)
         return None
-
 
     def is_full(self) -> bool:
         """
@@ -260,7 +207,7 @@ class Buildings(MinimalAgent):
 
         Parameters
         ----------
-        citizen : object
+        citizen : Citizen
         """
         if not self.is_full():
             self.occupants.append(citizen)
@@ -275,7 +222,6 @@ class Buildings(MinimalAgent):
 # Create a hospital class the inherits from the Buildings class
 class Hospital(Buildings):
     pass
-
 
 class MobileAgent(MinimalAgent):
     """
@@ -293,6 +239,58 @@ class MobileAgent(MinimalAgent):
         next_node = path[1]
         return next_node, path
         pass
+
+    def move(self, destination):
+        """
+        Method to move the agent to a new node in the network. The method should update the agent's `position` attribute
+        to the new node.
+        Parameters
+        ----------
+        destination : the node to which the agent is moving
+        """
+        pass
+
+class Ambulance(MobileAgent):
+    def __init__(self, unique_id, model):
+        super().__init__(unique_id, model)
+        self.patient = None
+
+    def transport_patient(self, patient: Citizen):
+        self.patient = patient
+        self.patient.transported = True
+        # Move the ambulance to the patient's location
+        self.model.grid.move_agent(self, patient.pos)
+
+        # Find the shortest path to the hospital
+        hospital = self.model.get_closest_hospital(self.patient.pos)
+        path = self.find_path(hospital)
+
+        # Move the ambulance towards the hospital one step at a time
+        for next_node in path[1:]:
+            self.model.grid.move_agent(self, next_node)
+
+    def step(self):
+        if self.patient is not None:
+            # Find the shortest path to the hospital
+            hospital = self.model.get_closest_hospital(self.patient.pos)
+            path = self.find_path(hospital)
+            # Move the ambulance one step towards the hospital
+            next_node = path[1]
+            self.model.grid.move_agent(self, next_node)
+            # If the ambulance has reached the hospital, update the patient's health status
+            if self.pos == hospital:
+                self.patient.health_status = "treated"
+                self.patient = None
+
+
+# class StaticAgent(MinimalAgent):
+#     def init(self, unique_id, model):
+#         super().__init__(unique_id, model)
+#
+#     def place(self, location):
+#         self.model.grid.place_agent_node(self, location)
+
+
 
 
 class Citizen(MobileAgent):
@@ -321,6 +319,8 @@ class Citizen(MobileAgent):
         self.trapped = trapped
 
         self.home = None
+        self.transported = False
+        self.is_injured = False
 
     def spawn(self, location: int | Agent = None, ) -> None:
         """
@@ -344,17 +344,6 @@ class Citizen(MobileAgent):
             location.assign_home(self)
             super().spawn(location)
 
-    def move(self, destination):
-        """
-        Method to move the agent to a new node in the network. The method should update the agent's `position` attribute
-        to the new node.
-        Parameters
-        ----------
-        destination : the node to which the agent is moving
-        """
-        pass
-
-
     def get_injured(self, severity):
         """reduces the health of the Citizen in response to external events
 
@@ -369,8 +358,6 @@ class Citizen(MobileAgent):
         """
         self.health -= self.model.random.randint(0, severity)
 
-
-    @property
     def deteriorate_health(self):
         """internal process of deterioration over time
 
