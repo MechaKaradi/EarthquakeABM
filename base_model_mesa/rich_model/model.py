@@ -40,10 +40,12 @@ class SpatialNetwork(space.NetworkGrid):
         node_id = agent.pos
         self.G.nodes[node_id]["agent"].remove(agent)
 
+
 class StagedAndTypedTime(time.BaseScheduler):
     def __init__(self, model):
         super().__init__(model)
         self.agents_by_type = defaultdict(dict)
+
     def add(self, agent: MinimalAgent) -> None:
         """
         Add an Agent object to the schedule
@@ -64,6 +66,15 @@ class StagedAndTypedTime(time.BaseScheduler):
 
         agent_class: str = agent.agentFamily
         del self.agents_by_type[agent_class][agent.unique_id]
+
+    def trigger_agent_action_bytype(self, agent_type: str, agent_action: str, agent_filter=None):
+        if agent_filter is None:
+            def agent_filter(test_agent):
+                return True
+
+        for agent in self.agents_by_type[agent_type].values():
+            if agent_filter(agent):
+                getattr(agent, agent_action)()
 
 
 class MinimalModel(Model):
@@ -163,34 +174,6 @@ class MinimalModel(Model):
             b += 1
             num += i
         return f'Created: {num} citizens in {b} buildings'
-
-    def get_closest_hospital(self, location):
-        """
-        Find the closest hospital to a given location
-        """
-        hospitals = self.schedule.agents_by_type["Hospital"]
-        closest_hospital = None
-        closest_distance = float("inf")
-        for hospital in hospitals:
-            distance = nx.shortest_path_length(self.G, location, hospital.pos)
-            if distance < closest_distance:
-                closest_distance = distance
-                closest_hospital = hospital
-        return closest_hospital
-
-    def get_closest_hospital(self, location):
-        """
-        Find the closest hospital to a given location
-        """
-        hospitals = self.schedule.agents_by_type["Hospital"]
-        closest_hospital = None
-        closest_distance = float("inf")
-        for hospital in hospitals:
-            distance = nx.shortest_path_length(self.G, location, hospital.pos)
-            if distance < closest_distance:
-                closest_distance = distance
-                closest_hospital = hospital
-        return closest_hospital
 
     def step(self):
         print("This is step: " + str(self.schedule.steps))

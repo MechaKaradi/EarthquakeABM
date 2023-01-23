@@ -259,6 +259,20 @@ class Ambulance(MobileAgent):
         super().__init__(unique_id, model)
         self.patient = None
 
+    def get_closest_hospital(self, location):
+        """
+        Find the closest hospital to a given location
+        """
+        hospitals = self.schedule.agents_by_type["Hospital"]
+        closest_hospital = None
+        closest_distance = float("inf")
+        for hospital in hospitals:
+            distance = nx.shortest_path_length(self.G, location, hospital.pos)
+            if distance < closest_distance:
+                closest_distance = distance
+                closest_hospital = hospital
+        return closest_hospital
+
     def transport_patient(self, patient: Citizen):
         self.patient = patient
         self.patient.transported = True
@@ -266,7 +280,7 @@ class Ambulance(MobileAgent):
         self.model.grid.move_agent(self, patient.pos)
 
         # Find the shortest path to the hospital
-        hospital = self.model.get_closest_hospital(self.patient.pos)
+        hospital = self.get_closest_hospital(self.patient.pos)
         path = self.find_path(hospital)
 
         # Move the ambulance towards the hospital one step at a time
