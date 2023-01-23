@@ -51,7 +51,7 @@ class MinimalAgent(Agent):
         if isinstance(location, int):
             self.model.grid.place_agent_node(self, location)
 
-        elif isinstance(location, Buildings):
+        elif isinstance(location, Building):
             location.add_citizen(self)
 
         elif location is None:
@@ -64,7 +64,7 @@ class MinimalAgent(Agent):
         print("Hello world! I am agent: " + str(self.unique_id) +
               "\n my node id is: " + str(self.pos) +
               "\n my color is: " + str(self.color))
-class Buildings(MinimalAgent):
+class Building(MinimalAgent):
     """
     state : int; the damage state of the building
     capacity : int; the maximum number of occupants that the building can hold
@@ -219,8 +219,8 @@ class Buildings(MinimalAgent):
         self.occupants.remove(citizen)
 
 
-# Create a hospital class the inherits from the Buildings class
-class Hospital(Buildings):
+# Create a hospital class the inherits from the Building class
+class Hospital(Building):
     pass
 
 class MobileAgent(MinimalAgent):
@@ -248,7 +248,11 @@ class MobileAgent(MinimalAgent):
         ----------
         destination : the node to which the agent is moving
         """
-        pass
+        # Steps to move agents to a new position
+        # Remove the agent from the current position - using the position's remove_agent method
+        # Add the agent to the new position - using the position's add_agent method
+        # Update the agent's position attribute to the new position
+
 
 class Ambulance(MobileAgent):
     def __init__(self, unique_id, model):
@@ -303,7 +307,7 @@ class Citizen(MobileAgent):
     If the citizen health value goes to 0 they become a corpse.
     Each citizen is a 'resident' of the city and has a `Residence(Building)` which they are assigned to as their 'home'.
     """
-    home: Buildings
+    home: Building
 
     def __init__(self, unique_id, model, health=13, trapped=False):
         """
@@ -329,7 +333,7 @@ class Citizen(MobileAgent):
         If the location is not specified, the method should call the parent's spawn method.
         If the location is an integer, the method should leave the home attribute unassigned and call the parent
         class's spawn method.
-        If the location is a Buildings agent, the method should assign the citizen to the building using the
+        If the location is a Building agent, the method should assign the citizen to the building using the
         building's resident method.
         Parameters
         ----------
@@ -339,7 +343,7 @@ class Citizen(MobileAgent):
             super().spawn()
         elif isinstance(location, int):
             super().spawn(location)
-        elif isinstance(location, Buildings):
+        elif isinstance(location, Building):
             self.home = location
             location.assign_home(self)
             super().spawn(location)

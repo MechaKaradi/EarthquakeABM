@@ -12,7 +12,7 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import random
 
-from agents import MinimalAgent, Buildings, MobileAgent, Citizen
+from agents import MinimalAgent, Building, MobileAgent, Citizen
 
 
 class SpatialNetwork(space.NetworkGrid):
@@ -20,30 +20,36 @@ class SpatialNetwork(space.NetworkGrid):
         super().__init__(G)
         for node_id in self.G.nodes:
             G.nodes[node_id]["buildings"] = list()
+
     def place_agent_node(self, agent, node_id):
         """Place an agent on the given node, and set its pos.
         Args:
             agent: Agent to place
             node_id: Node ID of node to place agent on
         """
-        if isinstance(agent, Buildings):
+        if isinstance(agent, Building):
             self.G.nodes[node_id]["buildings"].append(agent)
         else:
             self.G.nodes[node_id]["agent"].append(agent)
 
         agent.pos = node_id
 
+    def remove_agent(self, agent: Agent) -> None:
+        """Remove the agent from the network and set its pos attribute to None."""
+        node_id = agent.pos
+        self.G.nodes[node_id]["agent"].remove(agent)
+
 
 class MinimalModel(Model):
     G: nx.Graph = None
+
     def __init__(self):
 
-        self.MINIMUM_RESIDENCY = 50 # minimum percentage of building capacity which is occupied
+        self.MINIMUM_RESIDENCY = 50  # minimum percentage of building capacity which is occupied
         self.schedule = time.RandomActivation(self)
         with open('street_network.data', 'rb') as file:
             self.G = pickle.load(file)
-        # self.G = nx.relabel_nodes(self.G, {15012: 0}) """ No longer needed, incorporated into network creation
-        # notebook"""
+
         self.grid = SpatialNetwork(self.G)
 
         model_metrics = {
@@ -68,9 +74,10 @@ class MinimalModel(Model):
         agent_type_str = str(agent_type.__name__)
         # set agent_id to an integer representation of the agent_type
         agent_id = 0
-
+        agent_type_created: Class = agent_type
         model = self
         model.agent_dictionary[agent_type_str] = list()
+
         def _create_agent(location, **kwargs):
             """ Initialize and agent and add it to the model schedule?
 
@@ -85,8 +92,9 @@ class MinimalModel(Model):
             nonlocal agent_id
             nonlocal model
             nonlocal agent_type_str
+            nonlocal agent_type_created
             unique_id = f"{agent_type_str}_{agent_id}"
-            a = agent_type(unique_id, model, **kwargs)
+            a = agent_type_created(unique_id, model, **kwargs)
             model.schedule.add(a)
 
             agent_id += 1
@@ -104,7 +112,7 @@ class MinimalModel(Model):
         return _create_agent
 
     def buildings_to_nodes(self, number_of_buildings):
-        create_building = self.create_agents(Buildings)
+        create_building = self.create_agents(Building)
         i = 0
         while i < number_of_buildings:
             node_id = self.random.choice(list(self.G.nodes))
@@ -117,50 +125,48 @@ class MinimalModel(Model):
     def citizens_to_buildings(self, number_of_citizens: int):
         create_citizen = self.create_agents(Citizen)
         num = 0
-        building_iterator = list(self.agent_dictionary["Buildings"])
+        building_iterator = list(self.agent_dictionary["Building"])
         self.random.shuffle(building_iterator)
         b = 0
         while num <= number_of_citizens:
             building = building_iterator[b]
             i = len(building.residents)
-            building_residents_number = round(building.capacity * self.random.randint(self.MINIMUM_RESIDENCY,100)/100, None)
+            building_residents_number = round(
+                building.capacity * self.random.randint(self.MINIMUM_RESIDENCY, 100) / 100, None)
             while i <= building_residents_number:
                 create_citizen(location=building)
                 i += 1
             b += 1
             num += i
-
-        return f'Created: {num} citizens'
-   
-    def get_closest_hospital(self, location):
-        """
-        Find the closest hospital to a given location
-        """
-        hospitals = self.agent_dictionary["Hospital"]
-        closest_hospital = None
-        closest_distance = float("inf")
-        for hospital in hospitals:
-            distance = nx.shortest_path_length(self.G, location, hospital.pos)
-            if distance < closest_distance:
-                closest_distance = distance
-                closest_hospital = hospital
-        return closest_hospital
-
-    def get_closest_hospital(self, location):
-        """
-        Find the closest hospital to a given location
-        """
-        hospitals = self.agent_dictionary["Hospital"]
-        closest_hospital = None
-        closest_distance = float("inf")
-        for hospital in hospitals:
-            distance = nx.shortest_path_length(self.G, location, hospital.pos)
-            if distance < closest_distance:
-                closest_distance = distance
-                closest_hospital = hospital
-        return closest_hospital
         return f'Created: {num} citizens in {b} buildings'
 
+    def get_closest_hospital(self, location):
+        """
+        Find the closest hospital to a given location
+        """
+        hospitals = self.agent_dictionary["Hospital"]
+        closest_hospital = None
+        closest_distance = float("inf")
+        for hospital in hospitals:
+            distance = nx.shortest_path_length(self.G, location, hospital.pos)
+            if distance < closest_distance:
+                closest_distance = distance
+                closest_hospital = hospital
+        return closest_hospital
+
+    def get_closest_hospital(self, location):
+        """
+        Find the closest hospital to a given location
+        """
+        hospitals = self.agent_dictionary["Hospital"]
+        closest_hospital = None
+        closest_distance = float("inf")
+        for hospital in hospitals:
+            distance = nx.shortest_path_length(self.G, location, hospital.pos)
+            if distance < closest_distance:
+                closest_distance = distance
+                closest_hospital = hospital
+        return closest_hospital
 
     def step(self):
         print("This is step: " + str(self.schedule.steps))

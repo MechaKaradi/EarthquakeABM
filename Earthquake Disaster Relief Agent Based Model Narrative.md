@@ -12,8 +12,8 @@ The simulation of the earthquake features the following phenomenon:
 
 The following model elements are necessary to implement these phenomena in the model. 
 
-## Buildings 
-**[[Buildings]]** are damaged in the initial tremor and the people in the buildings need rescue, and medical care. 
+## Building 
+**[[Building]]**  are damaged in the initial tremor and the people in the buildings need rescue, and medical care. 
 Each node has 1 ‘building’ agent represents 1 or more related structures in that location. All structures of the same type are treated as the same building.
 i.e. a row of G+1 townhouses conceptually located on the same node are treated as 1 building for the model. However a hospital located on the same node is treated as a different building for the calculations and behaviour modeling.
 
@@ -22,7 +22,7 @@ A subset of buildings are treated as Residences- which are locations where citiz
 
 
 ### Housing
-Hospitals are [[Buildings]] with the ability to heal people. Hospital will dispatch ambulances to collect injured or sick citizens IF there are beds available in the hospital. If no beds are available, no ambulance will be dispatched. A bed is considered occupied while an injured or sick person is in the bed. Citizens who are more healthy than a certain threshold will be discharged. For each hour that a bed is occupied, the hospital will heal the citizen by a certain amount.
+Hospitals are [[Building]] with the ability to heal people. Hospital will dispatch ambulances to collect injured or sick citizens IF there are beds available in the hospital. If no beds are available, no ambulance will be dispatched. A bed is considered occupied while an injured or sick person is in the bed. Citizens who are more healthy than a certain threshold will be discharged. For each hour that a bed is occupied, the hospital will heal the citizen by a certain amount.
 > [!question] Stretch Goal
 >Once citizens are at a determined ‘wellness level’ they will be released IF housing is available to them. Otherwise, they will be held until either 100% recovered, or unless housing is allocated. 
 

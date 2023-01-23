@@ -12,7 +12,7 @@ import matplotlib.pyplot as plt
 import random
 
 
-from agents import MinimalAgent, Buildings, MobileAgent, Citizen
+from agents import MinimalAgent, Building, MobileAgent, Citizen
 from model import  MinimalModel
 
 import holoviews as hv
