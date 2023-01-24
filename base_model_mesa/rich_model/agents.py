@@ -6,7 +6,7 @@ import mesa.time as time
 import mesa.space as space
 from mesa.datacollection import DataCollector
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Tuple
 
 if TYPE_CHECKING:
     # We ensure that these are not imported during runtime to prevent cyclic
@@ -22,48 +22,114 @@ import random
 
 
 class MinimalAgent(Agent):
+    _pos: int | Agent | None
     model: MinimalModel
+    agentFamily: str
+    counter: dict[str, int]
+
 
     def __init__(self, unique_id, model: MinimalModel):
         super().__init__(unique_id, model)
 
         self.agentFamily = str(type(self).__name__)
-        self.color = '#%02x%02x%02x' % (random.randrange(0, 256, 16),
-                                        random.randrange(0, 256, 16),
-                                        random.randrange(0, 256, 16)
-                                        )
+        self.color = '%02x%02x%02x' % (random.randrange(0, 256, 16),
+                                       random.randrange(0, 256, 16),
+                                       random.randrange(0, 256, 16)
+                                       )
+        self._pos = None
 
-    position: int | Agent = None
+    # Handles Position of all agents
+    @property
+    def position(self) -> Tuple[float, float]:
+        """Handles the position of the agent in the model space The hidden attribute _pos can be either a node ID or
+        an agent object. The position keyword returns the x,y coordinates of the node ID - recursively if the _pos is
+        an agent object The setter method allows to set the position of the agent to a node ID or an agent object The
+        deleter method allows to remove the agent from the model space Both the setter and the deleter also update
+        the _pos attribute and call the appropriate methods of the model space and the agent object if the _pos is a
+        node ID or an agent object respectively
 
-    # positions of the agents may be a node or a building
+        Returns
+        -------
 
-    def spawn(self, location: int | Agent = None, ) -> None:
+        """
+        if isinstance(self._pos, int):
+            return self.model.grid.G.nodes[self._pos]["pos"]
+        else:
+            return self._pos.position
+
+    @position.setter
+    def position(self, location: int | Agent):
+        """
+        The setter method allows to set the position of the agent to a node ID or an agent object Based on the type
+        of the location argument, the method calls the appropriate methods of the model space or of the agent object
+
+        If the position is an ambulance, the position method does not call the ambulance method,
+        because this method is called from the ambulance's method itself
+        Parameters
+        ----------
+        location: int or Agent,
+        """
+        if isinstance(location, int):
+            self.model.grid.place_agent_node(self, location)
+
+        elif isinstance(location, (Building, Hospital)):
+            location.add_citizen(self)
+
+        elif isinstance(location, Ambulance):
+            pass
+
+        elif location is None:
+            raise ValueError("The location of the agent is not specified")
+
+        self._pos = location
+
+    @position.deleter
+    def position(self):
+        if isinstance(self._pos, int):
+            self.model.grid.remove_agent(self)
+        elif isinstance(self._pos, (Building, Hospital)):
+            self._pos.remove_citizen(self)
+        elif isinstance(self._pos, Ambulance):
+            pass
+        elif self._pos is None:
+            pass
+        else:
+            raise ValueError("The location of the agent is of a type that is not supported")
+
+        self._pos = None
+
+    def position_node(self):
+        """
+        Returns the node ID of the agent's position, recursively if the _pos is an agent object
+        Returns
+        -------
+
+        """
+        if isinstance(self._pos, int):
+            return self._pos
+        elif isinstance(self._pos, (Building, Hospital, Ambulance)):
+            return self._pos.position_node()
+        else:
+            raise ValueError("The location of the agent is of a type that is not supported")
+
+    def spawn(self, location: int | Agent = None, ) -> Tuple[float, float]:
         """
         Spawn the agent at an initial location on the spatial network.
         Default location of the agent is a node
         Args:
             location : a node ID for the spatial network. If None, select a random node ID from the model
 
-        -------
         Returns
-        None
+        -------
+        position: attribute of the agent which is always a tuple of the x,y coords of the agent's node
         """
-        if isinstance(location, int):
-            self.model.grid.place_agent_node(self, location)
-
-        elif isinstance(location, Building):
-            location.add_citizen(self)
-
-        elif location is None:
-            raise ValueError("The location of the agent is not specified")
-
         self.position = location
-        return location
+        return self.position
 
     def step(self):
-        print("Hello world! I am agent: " + str(self.unique_id) +
-              "\n my node id is: " + str(self.pos) +
-              "\n my color is: " + str(self.color))
+        pass
+
+
 class Building(MinimalAgent):
     """
     state : int; the damage state of the building
@@ -94,6 +160,8 @@ class Building(MinimalAgent):
         self.strength = model.random.gauss(8, 1)
         """Defines the strength of the building. The strength is a random variable with a mean of 8 and a standard 
         deviation of 1. This implies approximately 97% of buildings will have a strength between 5 and 9. """
+
+    # TODO: Override the "setter" for position so that the building does not accidentally move
 
     def damage_from_tremor(self, intensity: float) -> int:
         """Determines the damage from a tremor.
@@ -127,9 +195,10 @@ class Building(MinimalAgent):
         int : the increase in damage state of the building in number of levels
 
         """
-        in_state = self.state # the initial state of the building
-        def x(self):
-            var = self.state if in_state < 3 else 0
+        in_state = self.state  # the initial state of the building
+
+        def x(building):
+            var = building.state if in_state < 3 else 0
             return var
 
         if self.state == 3:  # if the building is already collapsed, do nothing
@@ -221,7 +290,17 @@ class Building(MinimalAgent):
 
 # Create a hospital class the inherits from the Building class
 class Hospital(Building):
+    # When hospitals are created, they get assigned a voronoi_cell based on the cells that are closest to them
+
+    def __init__(self, unique_id, model, initial_state=0, initial_capacity=None):
+        super().__init__(unique_id, model, initial_state, initial_capacity)
+        self.service_area = None
+
+    def get_own_voronoi_cell(self):
+        self.service_area = self.model.hospital_voronoi[self._pos]
+
     pass
+
 
 class MobileAgent(MinimalAgent):
     """
@@ -235,10 +314,8 @@ class MobileAgent(MinimalAgent):
 
     def find_path(self, destination):
         # Use the networkx library to find the shortest route from the position to the destination
-        path = nx.shortest_path(self.model.G, source=self.position, target=destination)
-        next_node = path[1]
-        return next_node, path
-        pass
+        path = nx.shortest_path(self.model.G, source=self.position_node(), target=destination)
+        return path
 
     def move(self, destination):
         """
@@ -248,67 +325,17 @@ class MobileAgent(MinimalAgent):
         ----------
         destination : the node to which the agent is moving
         """
-        # Steps to move agents to a new position
-        # Remove the agent from the current position - using the position's remove_agent method
-        # Add the agent to the new position - using the position's add_agent method
-        # Update the agent's position attribute to the new position
 
+        if self.position == destination:
+            return
+        if self.position is not None:
+            del self.position
+        self.position = destination
 
-class Ambulance(MobileAgent):
-    def __init__(self, unique_id, model):
-        super().__init__(unique_id, model)
-        self.patient = None
-
-    def get_closest_hospital(self, location):
-        """
-        Find the closest hospital to a given location
-        """
-        hospitals = self.schedule.agents_by_type["Hospital"]
-        closest_hospital = None
-        closest_distance = float("inf")
-        for hospital in hospitals:
-            distance = nx.shortest_path_length(self.G, location, hospital.pos)
-            if distance < closest_distance:
-                closest_distance = distance
-                closest_hospital = hospital
-        return closest_hospital
-
-    def transport_patient(self, patient: Citizen):
-        self.patient = patient
-        self.patient.transported = True
-        # Move the ambulance to the patient's location
-        self.model.grid.move_agent(self, patient.pos)
-
-        # Find the shortest path to the hospital
-        hospital = self.get_closest_hospital(self.patient.pos)
-        path = self.find_path(hospital)
-
-        # Move the ambulance towards the hospital one step at a time
-        for next_node in path[1:]:
-            self.model.grid.move_agent(self, next_node)
-
-    def step(self):
-        if self.patient is not None:
-            # Find the shortest path to the hospital
-            hospital = self.model.get_closest_hospital(self.patient.pos)
-            path = self.find_path(hospital)
-            # Move the ambulance one step towards the hospital
-            next_node = path[1]
-            self.model.grid.move_agent(self, next_node)
-            # If the ambulance has reached the hospital, update the patient's health status
-            if self.pos == hospital:
-                self.patient.health_status = "treated"
-                self.patient = None
-
-
-# class StaticAgent(MinimalAgent):
-#     def init(self, unique_id, model):
-#         super().__init__(unique_id, model)
-#
-#     def place(self, location):
-#         self.model.grid.place_agent_node(self, location)
-
-
+    # Steps to move agents to a new position
+    # Remove the agent from the current position - using the position's remove_agent method
+    # Add the agent to the new position - using the position's add_agent method
+    # Update the agent's position attribute to the new position
 
 
 class Citizen(MobileAgent):
@@ -375,11 +402,51 @@ class Citizen(MobileAgent):
 
         """
         self.health -= self.model.random.randint(0, severity)
+        self.is_injured = True
+
+
+    counter_health = -1
+    ticks_to_next_health = {12: 90,
+                            11: 90,
+                            10: 60,
+                            9: 60,
+                            8: 60,
+                            7: 30,
+                            6: 15,
+                            5: 15,
+                            4: 15,
+                            3: 15,
+                            2: 10,
+                            1: 5,
+                            0: 0,
+                            }
+    def set_counter_health(self):
+        if self.health == 13:
+            self.counter_health = -1
+            return 'healthy'
+
+        if self.health == 0:
+            self.counter_health = -100
+            return 'dead'
+
+        self.counter_health = self.ticks_to_next_health[self.health]
+        return 'injured'
+
+    def tick_health(self):
+        if self.counter_health > 0:
+            self.counter_health -= 1
+        elif self.counter_health == 0:
+            self.deteriorate_health()
+            self.set_counter_health()
+        else:
+            return 'no ticks'
+        return None
 
     def deteriorate_health(self):
+        #
         """internal process of deterioration over time
 
-        RPM , Mean time to next level in mains
+        RPM , Mean time to next level in mins
         12 , 90
         11 , 90
         10 , 60
@@ -401,3 +468,114 @@ class Citizen(MobileAgent):
         if self.health != 13:
             self.health -= 1
         return None
+
+
+class Ambulance(MobileAgent):
+    def __init__(self, unique_id, model):
+        super().__init__(unique_id, model)
+        self.patient = None
+
+    occupants = []
+
+
+    # Todo: Action decision making
+    # Todo: State Management for all agents
+    def get_closest_hospital(self):
+        """Find the location of the closest hospital to current location
+
+        Returns
+        -------
+        int: node id of the closest hospital
+
+        """
+        if isinstance(self._pos, int):
+            return self.model.G.nodes[self._pos]['nearest_hospital']
+        else:
+            return "not on a node"
+
+    def pick_up_patient(self, patient):
+        """Method to pick up a patient and add them to the ambulance
+
+        Parameters
+        ----------
+        patient: Citizen
+
+        Returns
+        -------
+        """
+        patient.position = self
+        self.occupants.append(patient)
+        self.patient = patient
+
+    def drop_off_patient(self):
+        """Method to drop off a patient and remove them from the ambulance
+        Must be called when the ambulance is at the hospital
+        Parameters
+        ----------
+
+        Returns
+        -------
+        """
+        hospital = self.model.G.nodes[self.position_node()]['Hospital'][0]
+        patient = self.patient
+
+        if hospital is None:
+            raise ValueError('Ambulance is not at a hospital')
+
+        patient.position = hospital
+        self.occupants.remove(patient)
+        self.patient = None
+        return None
+
+    def step_to_destination(self, destination):
+        """Method to move the ambulance towards an arbitrary destination
+
+        Parameters
+        ----------
+        destination: int, node id of the destination
+        Returns
+        -------
+        """
+        path = self.find_path(destination)
+        if len(path) == 0:
+            raise ValueError('No path to destination')
+        if len(path) == 1:
+            return 'Already at destination'
+
+        next_node = self.find_path(destination)[1]
+        self.move(next_node)
+        return next_node
+
+    def step_to_hospital(self):
+        """Method to move the ambulance towards the closest hospital
+
+        Parameters
+        ----------
+
+
+        Returns
+        -------
+        """
+        destination = self.get_closest_hospital()
+        return self.step_to_destination(destination)
+
+    def step(self):
+        if self.patient is not None:
+            # Find the shortest path to the hospital
+            hospital = self.model.get_closest_hospital(self.patient.pos)
+            path = self.find_path(hospital)
+            # Move the ambulance one step towards the hospital
+            next_node = path[1]
+            self.model.grid.move_agent(self, next_node)
+            # If the ambulance has reached the hospital, update the patient's health status
+            if self.pos == hospital:
+                self.patient.health_status = "treated"
+                self.patient = None
+
+
+class DoctorTeam(Citizen):
+    # TOdo: Assign the DoctorTeam to an ambulance.
+    # TODO; Create a triage function to model the doctors performing triage on the site
+    # Todo: Create a stabilising function/status for when the are stabilising a patient
+    # Todo: Changing sites with shared decision making of ambulance
+    pass
