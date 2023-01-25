@@ -1,6 +1,9 @@
+from __future__ import annotations
+
 from collections import defaultdict
 from pyclbr import Class
 import types
+from typing import Callable, Dict, List, Tuple, Union
 
 from mesa import Agent, Model
 import mesa.time as time
@@ -84,14 +87,14 @@ class StagedAndTypedTime(time.BaseScheduler):
         agent_class: str = agent.agentFamily
         del self.agents_by_type[agent_class][agent.unique_id]
 
-    def trigger_agent_action_bytype(self, agent_type: str, agent_action: str, agent_filter=None):
+    def trigger_agent_action_by_type(self, agent_type: str, agent_action: str, agent_filter=None, **kwargs):
         if agent_filter is None:
             def agent_filter(test_agent):
                 return True
 
         for agent in self.agents_by_type[agent_type].values():
             if agent_filter(agent):
-                getattr(agent, agent_action)()
+                getattr(agent, agent_action)(**kwargs)
 
 
 class ExtendedDataCollector(DataCollector):
@@ -167,7 +170,8 @@ class ExtendedDataCollector(DataCollector):
             prefix = ["model.schedule.steps", "unique_id"]
             attributes = [func.attribute_name for func in rep_funcs]
             self.agent_attr_index[agent_type] = {k: v for v, k in enumerate(prefix + attributes)}
-            print(self.agent_attr_index[agent_type])
+            if len(self.agent_attr_index[agent_type]) == 0:
+                raise ValueError("No agent attributes to record.")
             get_reports = attrgetter(*prefix + attributes)
 
         else:
@@ -201,7 +205,6 @@ class ExtendedDataCollector(DataCollector):
                 agent_records = self._record_agents(model, agent_type)
                 self._agent_records[agent_type][model.schedule.steps] = list(agent_records)
 
-    # Override the vars from agents method to ensure a steps column is accessible
     def get_agent_vars_dataframe(self, agent_type):
         """Create a pandas DataFrame from the agent variables.
 
@@ -226,6 +229,15 @@ class MinimalModel(Model):
     def __init__(self):
         # Parameters
         self.MINIMUM_RESIDENCY = 50  # minimum percentage of building capacity which is occupied
+        self.EARTHQUAKE_EVENTS: Dict[int, float] = {
+            1: 8.0,  # initial earthquake
+            60: 7.0,  # aftershock 1
+            120: 6.0,  # aftershock 2
+            300: 6.0,  # aftershock 3
+            600: 6.0,  # aftershock 4
+        }
+        """a dictionary of earthquake events. 
+            The key is the step number, the value is the magnitude of the earthquake."""
 
         # Create time
         self.schedule = StagedAndTypedTime(self)
@@ -236,7 +248,12 @@ class MinimalModel(Model):
 
         self.grid = SpatialNetwork(self.G)
 
+        # Create Agents
+        # Todo: Bring in the create agents logic and and parameters for numbers of agents to be created.
+        # ToDo: Create Ambulances and assign them to the hospital?
+
         # Create Data Collector
+
         model_metrics = {
             "Number of Agents": count_agents
         }
@@ -278,7 +295,7 @@ class MinimalModel(Model):
             nonlocal agent_type_str
             nonlocal agent_type_created
             unique_id = f"{agent_type_str}_{agent_id}"
-            a = agent_type_created(unique_id, model, **kwargs)
+            a: MinimalAgent = agent_type_created(unique_id, model, **kwargs)
 
             model.schedule.add(a)
 
@@ -312,7 +329,7 @@ class MinimalModel(Model):
             i += 1
         # create a representation of the voronoi regions for the hospitals
         self.assign_nearest_hospital_node()
-        self.schedule.trigger_agent_action_bytype("Hospital", "get_own_voronoi_cell")
+        self.schedule.trigger_agent_action_by_type("Hospital", "get_own_voronoi_cell")
 
         return f'Created: {i} hospitals'
 
@@ -323,6 +340,8 @@ class MinimalModel(Model):
         self.random.shuffle(building_iterator)
         b = 0
         while num <= number_of_citizens:
+            if b >= len(building_iterator):
+                raise Exception("Not enough buildings to create citizens")
             building = building_iterator[b]
             i = len(building.residents)
             building_residents_number = round(
@@ -333,6 +352,20 @@ class MinimalModel(Model):
             b += 1
             num += i
         return f'Created: {num} citizens in {b} buildings'
+
+    def ambulances_to_hospital(self, ambulances_per_hospital: int | Callable = 1):
+        create_ambulance = self.create_agents(Ambulance)
+        i = 0
+        hospitals_list = list(self.schedule.agents_by_type["Hospital"].values())
+        for hospital in hospitals_list:
+            hospital.ambulances = list()
+            ambulances_num = ambulances_per_hospital
+            location_list = self.random.choices(list(hospital.service_area), k=ambulances_num)
+            for location in location_list:
+                hospital.ambulances.append(create_ambulance(location=location))
+                create_ambulance(location=location)
+                i += 1
+        return f'Created: {i} ambulances'
 
     def assign_nearest_hospital_node(self) -> None:
         """Assign each node the nearest hospital as an attribute"""
@@ -345,36 +378,73 @@ class MinimalModel(Model):
                 self.G.nodes[node]['nearest_hospital'] = hospital
                 self.G.nodes[node]['nearest_hospital_color'] = hospital_color
 
+    def earthquake(self, magnitude: float):
+        """Simulate an earthquake event
+
+        Parameters
+        ----------
+        magnitude : float
+            The magnitude of the earthquake
+        """
+        self.schedule.trigger_agent_action_by_type("Building", "earthquake", magnitude=magnitude)
+
+    # a generator to return the collapsed buildings
+    def get_collapsed_building(self):
+        for building in self.schedule.agents_by_type["Building"].values():
+            if building.state == 3:
+                yield building
+
     def step(self):
+        # Phase 1
+        """External Events:
+        Check if this is an "Earthquake" event. If so, then call the "earthquake" method.
+        """
+        if self.schedule.steps in self.EARTHQUAKE_EVENTS:
+            self.earthquake(magnitude=self.EARTHQUAKE_EVENTS[self.schedule.steps])
+            """
+            self.earthquake calls the earthquake method of each building 
+            the building method handles applying the damage to the occupants of the buildings
+            """
+
+        # Phase 2
+        """Internal Events:
+        tick down the health of injured citizens not in a hospital
+            #TODO: apply a heal method to Citizens for hosptital, ambulance, and doctor team
+            Current status: Being in Hospital will pause death, but not heal
+        heal injured citizens in a hospital
+            #TODO: Create Heal method in hospital/citizen
+        """
+
+        self.schedule.trigger_agent_action_by_type("Citizen", "tick_health")
+
+        # Phase 3
+        """Dispatcher observes situation and collects information
+        - Get list of collapsed buildings
+        ? - Get some subset of injured citizens
+        """
+        # create a generator function that yields buildings with a state of 3
+
+        # Phase 4
+        """Agent decision making:
+        By Agent:
+        - Citizen: 
+        - DoctorTeam:
+        - Ambulance:
+        - Hospital:
+        """
+
+        # Phase 5
+
+        # Phase 6
+
         print("This is step: " + str(self.schedule.steps))
-        self.schedule.step()
+        # self.schedule.step()
+
         self.datacollector.collect(self)
 
-
-"""
-    def run_model(self, n):
-        for i in range(n):
-            self.step()
-"""
-
-""" Model metrics"""
+        self.schedule.steps += 1
+        self.schedule.time += 1
 
 
 def count_agents(self: MinimalModel):
     return len(self.schedule.agents)
-
-
-"""Run Model"""
-"""
-model = MinimalModel()
-for i in range(3):
-    model.step()
-"""
-
-# Get the Pandas Dataframe from the model, by using the table name we defined in the model
-"""
-model_data = model.datacollector.get_model_vars_dataframe()
-agent_data = model.datacollector.get_agent_vars_dataframe()
-print(model_data)
-print(agent_data)
-"""

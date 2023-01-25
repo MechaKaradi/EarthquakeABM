@@ -27,7 +27,6 @@ class MinimalAgent(Agent):
     agentFamily: str
     counter: dict[str, int]
 
-
     def __init__(self, unique_id, model: MinimalModel):
         super().__init__(unique_id, model)
 
@@ -161,11 +160,6 @@ class Building(MinimalAgent):
         """Defines the strength of the building. The strength is a random variable with a mean of 8 and a standard 
         deviation of 1. This implies approximately 97% of buildings will have a strength between 5 and 9. """
 
-
-    @position.setter
-    def position(self, location: int | Agent):
-        raise TypeError('Buildings don\'t move')
-
     def damage_from_tremor(self, intensity: float) -> int:
         """Determines the damage from a tremor.
         Each building has a `damageState`:
@@ -175,23 +169,23 @@ class Building(MinimalAgent):
             3: Collapsed
 
         Method to simulate the damage that the building will suffer from the earthquake. The method should update the
-        building's `damageState` attribute based on the intensity of the earthquake.
+        building's `damageState` attribute based on the magnitude of the earthquake.
         If the building is already in a collapsed state, the method should do nothing. If the building is in an
         unsafe state, the method should directly change the state to collapse. If the building is in a damaged state,
         the probability of collapsing the building should be 2 times the probability if the building is in a
         serviceable state.
 
         If the building is in a serviceable state, the probability of collapsing the building depends on the
-        intensity. If the intensity is less than the building's strength, the probability of damaging the building
-        is 0. If the difference between the intensity and the building's strength is greater than 2, the building is
-        moved to a collapsed state. If the difference in between the intensity and the building's strength is between
+        magnitude. If the magnitude is less than the building's strength, the probability of damaging the building
+        is 0. If the difference between the magnitude and the building's strength is greater than 2, the building is
+        moved to a collapsed state. If the difference in between the magnitude and the building's strength is between
         0 and 2 a random number is generated between 0 and 1. If the number is between 0 and 0.1, the building is
         moved to an unsafe state. If the number is between 0.1 and 0.5, the building is moved to a damaged state. If
         the number is between 0.5 and 1, the building is moved to a serviceable state.
 
         Parameters
         ----------
-        intensity : the intensity of the earthquake expressed as a magnitude. Expected to be between 5 and 9
+        intensity : the magnitude of the earthquake expressed as a magnitude. Expected to be between 5 and 9
 
         Returns
         -------
@@ -211,10 +205,10 @@ class Building(MinimalAgent):
             self.state = 3
             return x(self)
 
-        # if the building is serviceable, the probability of collapsing depends on the intensity
+        # if the building is serviceable, the probability of collapsing depends on the magnitude
         if self.state == 0 or self.state == 1:
             if intensity < self.strength:
-                # if the intensity is less than the building's strength, nothing happens
+                # if the magnitude is less than the building's strength, nothing happens
                 return x(self)
 
             if intensity - self.strength >= 2:
@@ -235,7 +229,7 @@ class Building(MinimalAgent):
                 else:
                     return x(self)
 
-    def earthquake(self, intensity: float) -> None:
+    def earthquake(self, magnitude: float) -> None:
         """Simulates the earthquake on the building.
         The method should call the `damage_from_tremor` method to determine the damage the building will suffer from
         the earthquake. It then calls the `get_injured` method of each occupant of the building to determine the
@@ -243,14 +237,14 @@ class Building(MinimalAgent):
 
         Parameters
         ----------
-        intensity : the intensity of the earthquake expressed as a magnitude. Expected to be between 5 and 9
+        magnitude : the intensity of the earthquake expressed as a magnitude. Expected to be between 5 and 9
 
         Returns
         -------
         None
 
         """
-        damage = self.damage_from_tremor(intensity)
+        damage = self.damage_from_tremor(magnitude)
         for occupant in self.occupants:
             occupant.get_injured(3 + damage * 3)
 
@@ -363,7 +357,7 @@ class Citizen(MobileAgent):
         trapped
         """
         super().__init__(unique_id, model)
-        self.health = health
+        self.health = 13
         self.trapped = trapped
 
         self.home = None
@@ -404,9 +398,18 @@ class Citizen(MobileAgent):
         -------
 
         """
-        self.health -= self.model.random.randint(0, severity)
-        self.is_injured = True
 
+        probability_escape = 0.5
+        random_number = self.model.random.random()
+        if random_number < probability_escape:
+            self.is_injured = False
+            return
+
+        hurt = self.model.random.randint(1, severity)
+        self.health -= hurt
+        if self.health < 0:
+            self.health = 0
+        self.is_injured = True
 
     counter_health = -1
     ticks_to_next_health = {12: 90,
@@ -423,6 +426,8 @@ class Citizen(MobileAgent):
                             1: 5,
                             0: 0,
                             }
+    counter_stabilize = 0
+
     def set_counter_health(self):
         if self.health == 13:
             self.counter_health = -1
@@ -436,11 +441,23 @@ class Citizen(MobileAgent):
         return 'injured'
 
     def tick_health(self):
+        if not self.is_injured:
+            return 'not injured'
+
+        if isinstance(self._pos, Hospital):
+            return 'in hospital'
+
+        if self.counter_health == -1:
+            self.set_counter_health()
+            return 'set counter'
+
         if self.counter_health > 0:
             self.counter_health -= 1
-        elif self.counter_health == 0:
+
+        if self.counter_health == 0:
             self.deteriorate_health()
             self.set_counter_health()
+
         else:
             return 'no ticks'
         return None
@@ -468,6 +485,9 @@ class Citizen(MobileAgent):
         -------
         None
         """
+        if self.health == 0:
+            return None
+
         if self.health != 13:
             self.health -= 1
         return None
@@ -479,7 +499,6 @@ class Ambulance(MobileAgent):
         self.patient = None
 
     occupants = []
-
 
     # Todo: Action decision making
     # Todo: State Management for all agents
