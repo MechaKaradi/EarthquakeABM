@@ -36,6 +36,7 @@ class SpatialNetwork(space.NetworkGrid):
             G.nodes[node_id]["Building"] = list()
             G.nodes[node_id]["Hospital"] = list()
             G.nodes[node_id]["Agent"] = list()
+
     def place_agent_node(self, agent, node_id):
         """Place an agent on the given node, and set its pos.
         Args:
@@ -199,6 +200,7 @@ class ExtendedDataCollector(DataCollector):
             if self.agent_reporters[agent_type]:
                 agent_records = self._record_agents(model, agent_type)
                 self._agent_records[agent_type][model.schedule.steps] = list(agent_records)
+
     # Override the vars from agents method to ensure a steps column is accessible
     def get_agent_vars_dataframe(self, agent_type):
         """Create a pandas DataFrame from the agent variables.
@@ -238,7 +240,7 @@ class MinimalModel(Model):
         model_metrics = {
             "Number of Agents": count_agents
         }
-        agent_metrics = { 'Citizen': {
+        agent_metrics = {'Citizen': {
             # "Agent ID": "unique_id",
             # lambda function to get the pos attribute of the node with position agent.position
             "Agent Coordnates": "position",

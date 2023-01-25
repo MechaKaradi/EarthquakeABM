@@ -161,7 +161,10 @@ class Building(MinimalAgent):
         """Defines the strength of the building. The strength is a random variable with a mean of 8 and a standard 
         deviation of 1. This implies approximately 97% of buildings will have a strength between 5 and 9. """
 
-    # TODO: Override the "setter" for position so that the building does not accidentally move
+
+    @position.setter
+    def position(self, location: int | Agent):
+        raise TypeError('Buildings don\'t move')
 
     def damage_from_tremor(self, intensity: float) -> int:
         """Determines the damage from a tremor.
