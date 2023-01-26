@@ -3,7 +3,7 @@ from __future__ import annotations
 from collections import defaultdict
 from pyclbr import Class
 import types
-from typing import Callable, Dict, List, Tuple, Union
+from typing import Callable, Dict, List, Tuple, Union, Any
 
 from mesa import Agent, Model
 import mesa.time as time
@@ -50,6 +50,8 @@ class SpatialNetwork(space.NetworkGrid):
             self.G.nodes[node_id]["Building"].append(agent)
         elif isinstance(agent, Hospital):
             self.G.nodes[node_id]["Hospital"].append(agent)
+        elif isinstance(agent, Ambulance):
+            self.G.nodes[node_id]["Ambulance"].append(agent)
         else:
             self.G.nodes[node_id]["Agent"].append(agent)
 
@@ -58,7 +60,14 @@ class SpatialNetwork(space.NetworkGrid):
     def remove_agent(self, agent: MinimalAgent) -> None:
         """Remove the agent from the network and set its pos attribute to None."""
         node_id = agent.position_node()
-        self.G.nodes[node_id]["Agent"].remove(agent)
+        if isinstance(agent, Ambulance):
+            self.G.nodes[node_id]["Ambulance"].remove(agent)
+        else:
+            self.G.nodes[node_id]["Agent"].remove(agent)
+
+    def get_node_agents(self, node_id):
+        return self.G.nodes[node_id]["Agent"]
+
 
 
 class StagedAndTypedTime(time.BaseScheduler):
@@ -231,10 +240,10 @@ class MinimalModel(Model):
         self.MINIMUM_RESIDENCY = 50  # minimum percentage of building capacity which is occupied
         self.EARTHQUAKE_EVENTS: Dict[int, float] = {
             1: 8.0,  # initial earthquake
-            60: 7.0,  # aftershock 1
-            120: 6.0,  # aftershock 2
-            300: 6.0,  # aftershock 3
-            600: 6.0,  # aftershock 4
+            600: 7.0,  # aftershock 1
+            1200: 6.0,  # aftershock 2
+            3000: 6.0,  # aftershock 3
+            6000: 6.0,  # aftershock 4
         }
         """a dictionary of earthquake events. 
             The key is the step number, the value is the magnitude of the earthquake."""
@@ -356,7 +365,7 @@ class MinimalModel(Model):
     def ambulances_to_hospital(self, ambulances_per_hospital: int | Callable = 1):
         create_ambulance = self.create_agents(Ambulance)
         i = 0
-        hospitals_list = list(self.schedule.agents_by_type["Hospital"].values())
+        hospitals_list: List[Hospital] = list(self.schedule.agents_by_type["Hospital"].values())
         for hospital in hospitals_list:
             hospital.ambulances = list()
             ambulances_num = ambulances_per_hospital
@@ -414,7 +423,6 @@ class MinimalModel(Model):
         heal injured citizens in a hospital
             #TODO: Create Heal method in hospital/citizen
         """
-
         self.schedule.trigger_agent_action_by_type("Citizen", "tick_health")
 
         # Phase 3
@@ -422,16 +430,20 @@ class MinimalModel(Model):
         - Get list of collapsed buildings
         ? - Get some subset of injured citizens
         """
-        # create a generator function that yields buildings with a state of 3
+
+
+
 
         # Phase 4
         """Agent decision making:
         By Agent:
-        - Citizen: 
+        - Citizen: make_choice() -> Return choice -> create status?
         - DoctorTeam:
         - Ambulance:
         - Hospital:
         """
+
+
 
         # Phase 5
 

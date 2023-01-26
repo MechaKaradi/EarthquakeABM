@@ -6,7 +6,7 @@ import mesa.time as time
 import mesa.space as space
 from mesa.datacollection import DataCollector
 
-from typing import TYPE_CHECKING, Tuple
+from typing import TYPE_CHECKING, Tuple, List, Any, Set
 
 if TYPE_CHECKING:
     # We ensure that these are not imported during runtime to prevent cyclic
@@ -35,7 +35,9 @@ class MinimalAgent(Agent):
                                        random.randrange(0, 256, 16),
                                        random.randrange(0, 256, 16)
                                        )
+
         self._pos = None
+        self.status = None
 
     # Handles Position of all agents
     @property
@@ -287,16 +289,22 @@ class Building(MinimalAgent):
 
 # Create a hospital class the inherits from the Building class
 class Hospital(Building):
+
+    service_area: Set[int] | None  # Set of nodes that the hospital serves
+    ambulances: List[Ambulance]  # List of ambulances assigned to service_area of the hospital
+
+
     # When hospitals are created, they get assigned a voronoi_cell based on the cells that are closest to them
 
     def __init__(self, unique_id, model, initial_state=0, initial_capacity=None):
         super().__init__(unique_id, model, initial_state, initial_capacity)
-        self.service_area = None
+        self.service_area = set()
+        self.ambulances = []
+        self.open_incident_sites = []
+
 
     def get_own_voronoi_cell(self):
         self.service_area = self.model.hospital_voronoi[self._pos]
-
-    pass
 
 
 class MobileAgent(MinimalAgent):
@@ -357,12 +365,15 @@ class Citizen(MobileAgent):
         trapped
         """
         super().__init__(unique_id, model)
+
         self.health = 13
         self.trapped = trapped
 
         self.home = None
         self.transported = False
         self.is_injured = False
+
+        self.triage_status = None
 
     def spawn(self, location: int | Agent = None, ) -> None:
         """
@@ -492,10 +503,28 @@ class Citizen(MobileAgent):
             self.health -= 1
         return None
 
+    def make_choice(self):
+        """
+        Make a choice about what to do based on the current situation
+        Possible Choices: Status
+        - Do nothing: None
+        - Go toward home: Moving, destination = home
+        - 1 Go to hospital: Moving, destination = nearest_hospital
+        - Go to random location: Moving, destination = random Node int
+        - Call for help: Calling
+        - Help someone else: Carry -> then Go to Hospital
+
+        Returns
+        -------
+        choice
+        """
+
 
 class Ambulance(MobileAgent):
     def __init__(self, unique_id, model):
         super().__init__(unique_id, model)
+        self.triaged_list = None
+        self.destination = None
         self.patient = None
 
     occupants = []
@@ -581,6 +610,54 @@ class Ambulance(MobileAgent):
         destination = self.get_closest_hospital()
         return self.step_to_destination(destination)
 
+    def make_choice(self):
+        """
+        Make a choice about what to do based on the current situation
+        Possible Choices: Resulting Status
+        - Do nothing: None
+
+        - 1 IF Idle, ask for call from list of open calls at home hospital
+        - 2 Go to nearest collapsed building in coverage zone: Moving, destination = building.position_node
+            Reached building
+        - 3 Check for triaged patients: Search
+        - 4. Pick up triaged patients: Pick Up ->
+        - 1 Go to hospital: Moving, destination = nearest_hospital
+            Reached hospital
+
+        -
+        -
+
+        Returns
+        -------
+        choice
+        """
+        if self.status == "Moving":
+            var = self.step_to_destination(self.destination)
+            if var == 'Already at destination':
+                self.status = None
+                self.destination = None
+            return self.status
+
+        # if the status is None check if the ambulance is at a node with a Citizen with a triage status
+        if self.status is None:
+            # Check if there are any triaged patients at the current node
+            self.triaged_list = []
+            for agent in self.model.grid.get_node_agents(self.position_node()):
+                if isinstance(agent, Citizen):
+                    if agent.triage_status is not None:
+                        self.triaged_list.append(agent.unique_id)
+            if len(self.triaged_list) > 0:
+                self.status = "Searching"
+                return self.status
+
+            # if there are no triaged patients at the current node check if there are any collapsed buildings
+            # in the coverage zone
+            if len(self.triaged_list) == 0:
+                self.destination = self.model.get_closest_collapsed_building(self.position_node())
+                if self.destination is not None:
+                    self.status = "Moving"
+                    return self.status
+
     def step(self):
         if self.patient is not None:
             # Find the shortest path to the hospital
@@ -595,7 +672,8 @@ class Ambulance(MobileAgent):
                 self.patient = None
 
 
-class DoctorTeam(Citizen):
+class DoctorTeam(Ambulance):
+
     # TOdo: Assign the DoctorTeam to an ambulance.
     # TODO; Create a triage function to model the doctors performing triage on the site
     # Todo: Create a stabilising function/status for when the are stabilising a patient
