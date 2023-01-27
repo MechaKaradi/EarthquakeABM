@@ -37,7 +37,7 @@ class MinimalAgent(Agent):
                                        )
 
         self._pos = None
-        self.status = None
+
 
     # Handles Position of all agents
     @property
@@ -149,6 +149,7 @@ class Building(MinimalAgent):
         initial_capacity : int | None
         """
         super().__init__(unique_id, model)
+        self.agentFamily = str(type(self).__name__)
         self.state = initial_state
         if initial_capacity is not None:
             self.capacity = initial_capacity
@@ -289,15 +290,14 @@ class Building(MinimalAgent):
 
 # Create a hospital class the inherits from the Building class
 class Hospital(Building):
-
     service_area: Set[int] | None  # Set of nodes that the hospital serves
     ambulances: List[Ambulance]  # List of ambulances assigned to service_area of the hospital
-
 
     # When hospitals are created, they get assigned a voronoi_cell based on the cells that are closest to them
 
     def __init__(self, unique_id, model, initial_state=0, initial_capacity=None):
         super().__init__(unique_id, model, initial_state, initial_capacity)
+        self.agentFamily = str(type(self).__name__)
         self.service_area = set()
         self.ambulances = []
         self.open_incident_sites = []
@@ -316,16 +316,22 @@ class MobileAgent(MinimalAgent):
 
     def __int__(self, unique_id, model):
         super().__init__(unique_id, model)
+        self.agentFamily = str(type(self).__name__)
 
     def find_path(self, destination):
         # Use the networkx library to find the shortest route from the position to the destination
         path = nx.shortest_path(self.model.G, source=self.position_node(), target=destination)
         return path
 
-    def move(self, destination):
+    def _move(self, destination):
         """
         Method to move the agent to a new node in the network. The method should update the agent's `position` attribute
         to the new node.
+        # Steps to move agents to a new position
+        # Remove the agent from the current position - using the position's remove_agent method
+        # Add the agent to the new position - using the position's add_agent method
+        # Update the agent's position attribute to the new position
+
         Parameters
         ----------
         destination : the node to which the agent is moving
@@ -337,10 +343,24 @@ class MobileAgent(MinimalAgent):
             del self.position
         self.position = destination
 
-    # Steps to move agents to a new position
-    # Remove the agent from the current position - using the position's remove_agent method
-    # Add the agent to the new position - using the position's add_agent method
-    # Update the agent's position attribute to the new position
+    def step_to_destination(self, destination):
+        """Method to move the agent one node towards an arbitrary destination
+
+        Parameters
+        ----------
+        destination: int, node id of the destination
+        Returns
+        -------
+        """
+        path = self.find_path(destination)
+        if len(path) == 0:
+            raise ValueError('No path to destination')
+        if len(path) == 1:
+            return 'Reached'
+
+        next_node = self.find_path(destination)[1]
+        self._move(next_node)
+        return next_node
 
 
 class Citizen(MobileAgent):
@@ -365,6 +385,7 @@ class Citizen(MobileAgent):
         trapped
         """
         super().__init__(unique_id, model)
+        self.agentFamily = str(type(self).__name__)
 
         self.health = 13
         self.trapped = trapped
@@ -410,7 +431,7 @@ class Citizen(MobileAgent):
 
         """
 
-        probability_escape = 0.5
+        probability_escape = 1.0 - (severity / (2 * 12.0))
         random_number = self.model.random.random()
         if random_number < probability_escape:
             self.is_injured = False
@@ -520,17 +541,25 @@ class Citizen(MobileAgent):
         """
 
 
-class Ambulance(MobileAgent):
+class Responder(MobileAgent):
+    destination: int
+    """Node ID of the position where there agent needs to reach"""
+
+    status: None
+    order: str
+    """A string representing the Citizen that the agent has to respond to
+    or the building that the agent has to respond to"""
+
+
     def __init__(self, unique_id, model):
         super().__init__(unique_id, model)
-        self.triaged_list = None
+        self.agentFamily = str(type(self).__name__)
+
+        self.order = None
+
         self.destination = None
-        self.patient = None
 
-    occupants = []
 
-    # Todo: Action decision making
-    # Todo: State Management for all agents
     def get_closest_hospital(self):
         """Find the location of the closest hospital to current location
 
@@ -544,7 +573,83 @@ class Ambulance(MobileAgent):
         else:
             return "not on a node"
 
-    def pick_up_patient(self, patient):
+    def step_to_hospital(self):
+        """Method to move the ambulance towards the closest hospital
+
+        Parameters
+        ----------
+
+
+        Returns
+        -------
+        """
+        self.destination = self.get_closest_hospital()
+        return self.step_to_destination(self.destination)
+
+    def get_order(self):
+        """Method to get an order from the dispatcher
+
+        Parameters
+        ----------
+        self.model.dispatcher: Dispatcher
+        """
+        self.order = self.model.dispatcher.get_call()
+        # Get the first part of the order string which is the type of agent
+        # that the responder needs to respond to
+
+        if self.order is None:
+            status = 'Idle'
+            return None
+        else:
+            self.destination = self.model.schedule.find_agent_by_id(self.order).position_node()
+            self.status = 'Moving'
+            return self.status
+
+class Ambulance(Responder):
+    occupants = []
+    """Occupants other than the patient being carried, if any"""
+    patient: None
+    """the object representing the patient which is being carried by the responder"""
+    status: str
+    # Todo: Action decision making
+    # Todo: State Management for all agents
+
+    def __init__(self, unique_id, model):
+        super().__init__(unique_id, model)
+        self.agentFamily = str(type(self).__name__)
+        self.occupants = []
+        self.patient = None
+        self.status = 'Idle'
+
+        self.choice_dict = {
+            'Idle': 'get_order',
+            'Moving': 'step_to_destination',
+            'Reached': 'pick_up_patient',
+            'Returning': 'step_to_hospital',
+            'Hospital': 'drop_off_patient'
+        }
+
+    def make_choice(self):
+        """
+        Returns
+        -------
+        choice:
+        for Status -> Call action
+        """
+        if self.status is None:
+            raise ValueError('Status is None')
+
+        getattr(self, self.choice_dict[self.status])()
+        return self.status
+
+    def step_to_destination(self):
+        dest = self.destination
+        val = super().step_to_destination(dest)
+        if val == 'Reached':
+            self.status = 'Reached'
+        return self.status
+
+    def pick_up_patient(self):
         """Method to pick up a patient and add them to the ambulance
 
         Parameters
@@ -554,9 +659,25 @@ class Ambulance(MobileAgent):
         Returns
         -------
         """
+        # Confirm the postion of the ordered patient
+        patient = self.model.schedule.find_agent_by_id(self.order)
+        if patient is None:
+            raise ValueError('Patient is None')
+        if patient.position_node() != self.position_node():
+            raise ValueError('Patient is not at the same location as the ambulance')
+
         patient.position = self
-        self.occupants.append(patient)
         self.patient = patient
+
+        self.status = 'Returning'
+        return self.status
+
+    def step_to_hospital(self):
+        self.destination = self.get_closest_hospital()
+        val = self.step_to_destination()
+        if val == 'Reached':
+            self.status = 'Hospital'
+        return self.status
 
     def drop_off_patient(self):
         """Method to drop off a patient and remove them from the ambulance
@@ -574,106 +695,25 @@ class Ambulance(MobileAgent):
             raise ValueError('Ambulance is not at a hospital')
 
         patient.position = hospital
-        self.occupants.remove(patient)
         self.patient = None
-        return None
-
-    def step_to_destination(self, destination):
-        """Method to move the ambulance towards an arbitrary destination
-
-        Parameters
-        ----------
-        destination: int, node id of the destination
-        Returns
-        -------
-        """
-        path = self.find_path(destination)
-        if len(path) == 0:
-            raise ValueError('No path to destination')
-        if len(path) == 1:
-            return 'Already at destination'
-
-        next_node = self.find_path(destination)[1]
-        self.move(next_node)
-        return next_node
-
-    def step_to_hospital(self):
-        """Method to move the ambulance towards the closest hospital
-
-        Parameters
-        ----------
-
-
-        Returns
-        -------
-        """
-        destination = self.get_closest_hospital()
-        return self.step_to_destination(destination)
-
-    def make_choice(self):
-        """
-        Make a choice about what to do based on the current situation
-        Possible Choices: Resulting Status
-        - Do nothing: None
-
-        - 1 IF Idle, ask for call from list of open calls at home hospital
-        - 2 Go to nearest collapsed building in coverage zone: Moving, destination = building.position_node
-            Reached building
-        - 3 Check for triaged patients: Search
-        - 4. Pick up triaged patients: Pick Up ->
-        - 1 Go to hospital: Moving, destination = nearest_hospital
-            Reached hospital
-
-        -
-        -
-
-        Returns
-        -------
-        choice
-        """
-        if self.status == "Moving":
-            var = self.step_to_destination(self.destination)
-            if var == 'Already at destination':
-                self.status = None
-                self.destination = None
-            return self.status
-
-        # if the status is None check if the ambulance is at a node with a Citizen with a triage status
-        if self.status is None:
-            # Check if there are any triaged patients at the current node
-            self.triaged_list = []
-            for agent in self.model.grid.get_node_agents(self.position_node()):
-                if isinstance(agent, Citizen):
-                    if agent.triage_status is not None:
-                        self.triaged_list.append(agent.unique_id)
-            if len(self.triaged_list) > 0:
-                self.status = "Searching"
-                return self.status
-
-            # if there are no triaged patients at the current node check if there are any collapsed buildings
-            # in the coverage zone
-            if len(self.triaged_list) == 0:
-                self.destination = self.model.get_closest_collapsed_building(self.position_node())
-                if self.destination is not None:
-                    self.status = "Moving"
-                    return self.status
+        self.status = 'Idle'
+        return self.status
 
     def step(self):
-        if self.patient is not None:
-            # Find the shortest path to the hospital
-            hospital = self.model.get_closest_hospital(self.patient.pos)
-            path = self.find_path(hospital)
-            # Move the ambulance one step towards the hospital
-            next_node = path[1]
-            self.model.grid.move_agent(self, next_node)
-            # If the ambulance has reached the hospital, update the patient's health status
-            if self.pos == hospital:
-                self.patient.health_status = "treated"
-                self.patient = None
+        """Method to step the ambulance through the model
+
+        Parameters
+        ----------
+
+        Returns
+        -------
+        """
+        if self.status is None:
+            self.status = 'Idle'
+        self.make_choice()
 
 
-class DoctorTeam(Ambulance):
-
+class DoctorTeam(Responder):
     # TOdo: Assign the DoctorTeam to an ambulance.
     # TODO; Create a triage function to model the doctors performing triage on the site
     # Todo: Create a stabilising function/status for when the are stabilising a patient

@@ -3,7 +3,7 @@ from __future__ import annotations
 from collections import defaultdict
 from pyclbr import Class
 import types
-from typing import Callable, Dict, List, Tuple, Union, Any
+from typing import Callable, Dict, List, Tuple, Union, Any, Set
 
 from mesa import Agent, Model
 import mesa.time as time
@@ -38,13 +38,22 @@ class SpatialNetwork(space.NetworkGrid):
         for node_id in self.G.nodes:
             G.nodes[node_id]["Building"] = list()
             G.nodes[node_id]["Hospital"] = list()
-            G.nodes[node_id]["Agent"] = list()
+            G.nodes[node_id]["Ambulance"] = list()
+            G.nodes[node_id]["DoctorTeam"] = list()
+            G.nodes[node_id]["Citizen"] = list()
 
     def place_agent_node(self, agent, node_id):
         """Place an agent on the given node, and set its pos.
         Args:
             agent: Agent to place
             node_id: Node ID of node to place agent on
+
+        Parameters
+        ----------
+        agent : MinimalAgent
+        """
+        # TODO: Can be refactored to use agent.family instead of isinstance
+        self.G.nodes[node_id][agent.agentFamily].append(agent)
         """
         if isinstance(agent, Building):
             self.G.nodes[node_id]["Building"].append(agent)
@@ -52,25 +61,30 @@ class SpatialNetwork(space.NetworkGrid):
             self.G.nodes[node_id]["Hospital"].append(agent)
         elif isinstance(agent, Ambulance):
             self.G.nodes[node_id]["Ambulance"].append(agent)
+        elif isinstance(agent, DoctorTeam):
+            self.G.nodes[node_id]["DoctorTeam"].append(agent)
         else:
-            self.G.nodes[node_id]["Agent"].append(agent)
+            self.G.nodes[node_id]["Agent"].append(agent)"""
 
         agent.pos = node_id
 
     def remove_agent(self, agent: MinimalAgent) -> None:
-        """Remove the agent from the network and set its pos attribute to None."""
+        """Remove the agent from the network """
         node_id = agent.position_node()
-        if isinstance(agent, Ambulance):
-            self.G.nodes[node_id]["Ambulance"].remove(agent)
-        else:
-            self.G.nodes[node_id]["Agent"].remove(agent)
+        # TODO: Can be refactored to use agent.family instead of isinstance
+        self.G.nodes[node_id][agent.agentFamily].remove(agent)
 
     def get_node_agents(self, node_id):
-        return self.G.nodes[node_id]["Agent"]
-
+        raise 'NotImplementedError'
+        # return self.G.nodes[node_id]["Agent"]
 
 
 class StagedAndTypedTime(time.BaseScheduler):
+    agents_by_type: defaultdict[str, dict]
+    """A dictionary of all the agents organised by type
+    Contains a key for each agent type and as a value contains a dictionary of all agents of that type 
+    The nested dictionary is keyed by the agent's unique ID and the value is the respective agent object"""
+
     def __init__(self, model):
         super().__init__(model)
         self.agents_by_type = defaultdict(dict)
@@ -104,6 +118,10 @@ class StagedAndTypedTime(time.BaseScheduler):
         for agent in self.agents_by_type[agent_type].values():
             if agent_filter(agent):
                 getattr(agent, agent_action)(**kwargs)
+
+    def find_agent_by_id(self, agent_id):
+        agent_type = agent_id.split("_")[0]
+        return self.agents_by_type[agent_type][agent_id]
 
 
 class ExtendedDataCollector(DataCollector):
@@ -237,13 +255,14 @@ class MinimalModel(Model):
 
     def __init__(self):
         # Parameters
+
         self.MINIMUM_RESIDENCY = 50  # minimum percentage of building capacity which is occupied
         self.EARTHQUAKE_EVENTS: Dict[int, float] = {
             1: 8.0,  # initial earthquake
-            600: 7.0,  # aftershock 1
-            1200: 6.0,  # aftershock 2
-            3000: 6.0,  # aftershock 3
-            6000: 6.0,  # aftershock 4
+            # 600: 7.0,  # aftershock 1
+            # 1200: 6.0,  # aftershock 2
+            # 3000: 6.0,  # aftershock 3
+            # 6000: 6.0,  # aftershock 4
         }
         """a dictionary of earthquake events. 
             The key is the step number, the value is the magnitude of the earthquake."""
@@ -257,6 +276,8 @@ class MinimalModel(Model):
 
         self.grid = SpatialNetwork(self.G)
 
+        self.dispatcher = Dispatcher(self, 10)
+
         # Create Agents
         # Todo: Bring in the create agents logic and and parameters for numbers of agents to be created.
         # ToDo: Create Ambulances and assign them to the hospital?
@@ -266,15 +287,21 @@ class MinimalModel(Model):
         model_metrics = {
             "Number of Agents": count_agents
         }
-        agent_metrics = {'Citizen': {
-            # "Agent ID": "unique_id",
-            # lambda function to get the pos attribute of the node with position agent.position
-            "Agent Coordnates": "position",
-            "Agent Position": "_pos",
-            "Agent Colour": "color",
-            "family": "agentFamily",
-            "Health": "health",
-        }}
+        agent_metrics = {
+            'Citizen': {
+                # "Agent ID": "unique_id",
+                # lambda function to get the pos attribute of the node with position agent.position
+                "Agent Coordnates": "position",
+                "Agent Position": "_pos",
+                "Agent Colour": "color",
+                "family": "agentFamily",
+                "Health": "health"},
+            'Ambulance': {
+                "Ambulance Position": "_pos",
+                "Ambulance Status": "status",
+                "Patient": "patient",
+            },
+        }
         self.datacollector = ExtendedDataCollector(model_reporters=model_metrics, agent_reporters=agent_metrics)
         self.datacollector.collect(self)
 
@@ -376,6 +403,20 @@ class MinimalModel(Model):
                 i += 1
         return f'Created: {i} ambulances'
 
+    def doctors_to_hospital(self, doctors_per_hospital: int | Callable = 1):
+        create_doctor = self.create_agents(DoctorTeam)
+        i = 0
+        hospitals_list: List[Hospital] = list(self.schedule.agents_by_type["Hospital"].values())
+        for hospital in hospitals_list:
+            hospital.doctors = list()
+            ambulances_num = doctors_per_hospital
+            location_list = self.random.choices(list(hospital.service_area), k=ambulances_num)
+            for location in location_list:
+                hospital.ambulances.append(create_doctor(location=location))
+                create_doctor(location=location)
+                i += 1
+        return f'Created: {i} Doctor Teams'
+
     def assign_nearest_hospital_node(self) -> None:
         """Assign each node the nearest hospital as an attribute"""
         hospital_nodes = [(lambda x: x._pos)(x) for x in (self.schedule.agents_by_type["Hospital"].values())]
@@ -430,9 +471,7 @@ class MinimalModel(Model):
         - Get list of collapsed buildings
         ? - Get some subset of injured citizens
         """
-
-
-
+        self.dispatcher.update_calls_queue()
 
         # Phase 4
         """Agent decision making:
@@ -442,9 +481,7 @@ class MinimalModel(Model):
         - Ambulance:
         - Hospital:
         """
-
-
-
+        self.schedule.trigger_agent_action_by_type("Ambulance", "make_choice")
         # Phase 5
 
         # Phase 6
@@ -456,6 +493,75 @@ class MinimalModel(Model):
 
         self.schedule.steps += 1
         self.schedule.time += 1
+
+
+class Dispatcher:
+    """handles the availability of information to the Responder agents
+    A special role in the simulation that is not an agent.
+    Dispatcher is not modled as an agents because it is not necessarily analogous to an institution or organization.
+    It may handle information retrieval in cases where the agents are acting autonomously
+    In all cases, the dispatcher is not the locus at which different policies are modeled.
+    """
+    _assigned: Set[str]
+    "A set of unique Ids of citizens that have been assigned to a responder"
+    _calls_queue: List[str]
+    "A list of unique Ids of citizens that have called for help"
+    model: MinimalModel
+    "The calling model"
+    size: int
+    "the capacity of the dispatcher to handle calls"
+
+    def __init__(self, model, dispatch_size=10):
+        """
+
+        Parameters
+        ----------
+        dispatch_size : int
+        model: MinimalModel
+            the model in which the Dispatcher is called
+        """
+        self.model = model
+        self.size = dispatch_size
+        self._calls_queue = list()
+        self._assigned = set()
+
+    def injured_citizens(self):
+        # list expression that creates a shuffled list of citizen unique Ids and returns them 1 by one
+
+        injured_citizens = []
+        for citizen in self.model.schedule.agents_by_type["Citizen"].values():
+            if citizen.is_injured:
+                if citizen.health > 0:
+                    if isinstance(citizen._pos, Hospital):
+                        continue
+                    injured_citizens.append(citizen.unique_id)
+        return injured_citizens
+
+    def update_calls_queue(self):
+        # adds random injured citizens to the calls queue
+        calls = set()
+        # create a set from injured citizens and then subtract the set of assigned citizens
+        calls = set(self.injured_citizens()) - self._assigned
+        calls = calls - set(self._calls_queue)
+        # convert the set to a list and shuffle it and then get the first self.size elements
+        calls = self.model.random.sample(list(calls), min(self.size, len(calls)))
+        # add the calls to the queue
+        self._calls_queue.extend(calls)
+
+    def get_call(self):
+        """fetches the next call in the queue
+        Called by a Responder agent to get the next call in the queue
+        Returns
+        -------
+
+        """
+        # returns the next call in the queue
+        if len(self._calls_queue) > 0:
+            call: str = self._calls_queue.pop(0)
+            self._assigned.add(call)
+            return call
+        else:
+            return None
 
 
 def count_agents(self: MinimalModel):
