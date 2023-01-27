@@ -18,7 +18,7 @@ from model import  MinimalModel
 import holoviews as hv
 hv.extension('matplotlib')
 
-model = MinimalModel()
+model = MinimalModel(10)
 
 model.step()
 

@@ -250,22 +250,115 @@ class ExtendedDataCollector(DataCollector):
         return df
 
 
+class Dispatcher:
+    """handles the availability of information to the Responder agents
+    A special role in the simulation that is not an agent.
+    Dispatcher is not modled as an agents because it is not necessarily analogous to an institution or organization.
+    It may handle information retrieval in cases where the agents are acting autonomously
+    In all cases, the dispatcher is not the locus at which different policies are modeled.
+    """
+    _assigned: Set[str]
+    "A set of unique Ids of citizens that have been assigned to a responder"
+    _calls_queue: List[str]
+    "A list of unique Ids of citizens that have called for help"
+    model: MinimalModel
+    "The calling model"
+    size: int
+    "the capacity of the dispatcher to handle calls"
+
+    def __init__(self, model, dispatch_size=10):
+        """
+
+        Parameters
+        ----------
+        dispatch_size : int
+        model: MinimalModel
+            the model in which the Dispatcher is called
+        """
+        self.model = model
+        self.size = dispatch_size
+        self._calls_queue = list()
+        self._assigned = set()
+
+    def injured_citizens(self):
+        # list expression that creates a shuffled list of citizen unique Ids and returns them 1 by one
+
+        injured_citizens = []
+        for citizen in self.model.schedule.agents_by_type["Citizen"].values():
+            if citizen.is_injured:
+                if citizen.health > 0:
+                    if isinstance(citizen._pos, Hospital):
+                        continue
+                    injured_citizens.append(citizen.unique_id)
+        return injured_citizens
+
+    def update_calls_queue(self):
+        # adds random injured citizens to the calls queue
+        calls = set()
+        # create a set from injured citizens and then subtract the set of assigned citizens
+        calls = set(self.injured_citizens()) - self._assigned
+        calls = calls - set(self._calls_queue)
+        # convert the set to a list and shuffle it and then get the first self.size elements
+        calls = self.model.random.sample(list(calls), min(self.size, len(calls)))
+        # add the calls to the queue
+        self._calls_queue.extend(calls)
+
+    def get_call(self):
+        """fetches the next call in the queue
+        Called by a Responder agent to get the next call in the queue
+        Returns
+        -------
+
+        """
+        # returns the next call in the queue
+        if len(self._calls_queue) > 0:
+            call: str = self._calls_queue.pop(0)
+            self._assigned.add(call)
+            return call
+        else:
+            return None
+
+
 class MinimalModel(Model):
-    G: nx.Graph = None
+    MINIMUM_RESIDENCY: int
+    """a percentage, the minimum proportion of each building which is occupied at the time of spawn"""
 
-    def __init__(self):
+    G: nx.Graph
+    """the street network"""
+
+    EARTHQUAKE_EVENTS: Dict[int, float]
+    """a dictionary of earthquake events. the first number is the step of the event, the second is the mangnitude"""
+
+    def __init__(self,
+                 num_buildings: int,
+                 num_citizens: int,
+                 num_hospitals: int,
+                 num_ambulances: int,
+                 dispatch_size,
+                 **kwargs
+                 ):
+
         # Parameters
+        self.num_buildings = num_buildings
+        self.num_citizens = num_citizens
+        self.num_hospitals = num_hospitals
+        self.num_ambulances = num_ambulances
 
-        self.MINIMUM_RESIDENCY = 50  # minimum percentage of building capacity which is occupied
-        self.EARTHQUAKE_EVENTS: Dict[int, float] = {
+        self.dispatch_size = dispatch_size
+
+        if 'EARTHQUAKE_EVENTS' in kwargs:
+            self.EARTHQUAKE_EVENTS = kwargs['EARTHQUAKE_EVENTS']
+        else:
+            self.EARTHQUAKE_EVENTS: Dict[int, float] = {
             1: 8.0,  # initial earthquake
             # 600: 7.0,  # aftershock 1
             # 1200: 6.0,  # aftershock 2
-            # 3000: 6.0,  # aftershock 3
-            # 6000: 6.0,  # aftershock 4
-        }
-        """a dictionary of earthquake events. 
-            The key is the step number, the value is the magnitude of the earthquake."""
+            }
+
+        if 'MINIMUM_RESIDENCY' in kwargs:
+            self.MINIMUM_RESIDENCY = kwargs['MINIMUM_RESIDENCY']
+        else:
+            self.MINIMUM_RESIDENCY = 50  # minimum percentage of building capacity which is occupied
 
         # Create time
         self.schedule = StagedAndTypedTime(self)
@@ -276,14 +369,15 @@ class MinimalModel(Model):
 
         self.grid = SpatialNetwork(self.G)
 
-        self.dispatcher = Dispatcher(self, 10)
+        # Create Dispatcher
+
+        self.dispatcher = Dispatcher(self, dispatch_size=self.dispatch_size)
 
         # Create Agents
         # Todo: Bring in the create agents logic and and parameters for numbers of agents to be created.
         # ToDo: Create Ambulances and assign them to the hospital?
 
         # Create Data Collector
-
         model_metrics = {
             "Number of Agents": count_agents
         }
@@ -306,6 +400,9 @@ class MinimalModel(Model):
         self.datacollector.collect(self)
 
         self.running = True
+
+        # Initialise the Agents
+        self.initialize_agents(num_buildings, num_citizens, num_hospitals, num_ambulances)
 
     # Create a closure to create agents with different classes but sequential unique ids
     def create_agents(self, agent_type):
@@ -494,74 +591,12 @@ class MinimalModel(Model):
         self.schedule.steps += 1
         self.schedule.time += 1
 
-
-class Dispatcher:
-    """handles the availability of information to the Responder agents
-    A special role in the simulation that is not an agent.
-    Dispatcher is not modled as an agents because it is not necessarily analogous to an institution or organization.
-    It may handle information retrieval in cases where the agents are acting autonomously
-    In all cases, the dispatcher is not the locus at which different policies are modeled.
-    """
-    _assigned: Set[str]
-    "A set of unique Ids of citizens that have been assigned to a responder"
-    _calls_queue: List[str]
-    "A list of unique Ids of citizens that have called for help"
-    model: MinimalModel
-    "The calling model"
-    size: int
-    "the capacity of the dispatcher to handle calls"
-
-    def __init__(self, model, dispatch_size=10):
-        """
-
-        Parameters
-        ----------
-        dispatch_size : int
-        model: MinimalModel
-            the model in which the Dispatcher is called
-        """
-        self.model = model
-        self.size = dispatch_size
-        self._calls_queue = list()
-        self._assigned = set()
-
-    def injured_citizens(self):
-        # list expression that creates a shuffled list of citizen unique Ids and returns them 1 by one
-
-        injured_citizens = []
-        for citizen in self.model.schedule.agents_by_type["Citizen"].values():
-            if citizen.is_injured:
-                if citizen.health > 0:
-                    if isinstance(citizen._pos, Hospital):
-                        continue
-                    injured_citizens.append(citizen.unique_id)
-        return injured_citizens
-
-    def update_calls_queue(self):
-        # adds random injured citizens to the calls queue
-        calls = set()
-        # create a set from injured citizens and then subtract the set of assigned citizens
-        calls = set(self.injured_citizens()) - self._assigned
-        calls = calls - set(self._calls_queue)
-        # convert the set to a list and shuffle it and then get the first self.size elements
-        calls = self.model.random.sample(list(calls), min(self.size, len(calls)))
-        # add the calls to the queue
-        self._calls_queue.extend(calls)
-
-    def get_call(self):
-        """fetches the next call in the queue
-        Called by a Responder agent to get the next call in the queue
-        Returns
-        -------
-
-        """
-        # returns the next call in the queue
-        if len(self._calls_queue) > 0:
-            call: str = self._calls_queue.pop(0)
-            self._assigned.add(call)
-            return call
-        else:
-            return None
+    def initialize_agents(self, num_buildings, num_citizens, num_hospitals, num_ambulances):
+        self.buildings_to_nodes(num_buildings)
+        self.citizens_to_buildings(num_citizens)
+        self.hospitals_to_nodes(num_hospitals)
+        self.ambulances_to_hospital(num_ambulances)
+        return None
 
 
 def count_agents(self: MinimalModel):
