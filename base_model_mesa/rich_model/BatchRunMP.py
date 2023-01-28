@@ -33,14 +33,14 @@ model_reporters = {"num_citizens": lambda m: m.schedule.get_agent_count(),
 
 'keep track of the agents position and the state of the city'
 
-class BatchrunnerExtender(BatchRunnerMP):
+""" class BatchrunnerExtender(BatchRunnerMP):
         def _result_prep_mp(self, results):
-            """
+            
             Helper Function
             :param results: Takes results dictionary from Processpool and single processor debug run and fixes format to
          make compatible with BatchRunner Output
          :updates model_vars and agents_vars so consistent across all batchrunner
-         """
+         
             # Take results and convert to dictionary so dataframe can be called
             for model_key, model in results.items():
                 if self.model_reporters:
@@ -64,7 +64,7 @@ class BatchrunnerExtender(BatchRunnerMP):
             if len(self.datacollector_model_reporters.keys()) == 0:
                 self.datacollector_model_reporters = None
             if len(self.datacollector_agent_reporters.keys()) == 0:
-                self.datacollector_agent_reporters = None
+                self.datacollector_agent_reporters = None """
 
     # def run_iteration(self, kwargs, param_values, run_count):
     #     """ Run one iteration of the model, with the given parameters. """
@@ -97,7 +97,7 @@ class BatchrunnerExtender(BatchRunnerMP):
 
 'specifying the model class, the parameter settings, the number of times to run each set of parameters, and the reporters to be tracked'
 
-run = batch_run(MinimalModel, parameters, number_processes=2, max_steps= 10)
+run = batch_run(MinimalModel, parameters, number_processes=1, max_steps= 10)
 'run the Batchrunner'
 
 # results = batch_run.get_model_vars_dataframe()
