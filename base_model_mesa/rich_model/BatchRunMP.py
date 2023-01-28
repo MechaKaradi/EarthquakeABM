@@ -1,15 +1,14 @@
 from mesa.batchrunner import BatchRunnerMP, batch_run
 from model import MinimalModel
-import multiprocessing
-
+from multiprocessing import freeze_support
 parameters = {
     # "magnitude": [5, 6, 7],
-    "num_citizens": [3000],
-    "num_buildings": [100],
+    "num_citizens": [20000],
+    "num_buildings": [1000],
     "num_hospitals": [5],
     "num_ambulances": [0, 1, 5, 15],
     "num_doctors": [1],
-    "dispatch_size": [5, 10]
+    "dispatch_size": [1,10,50]
 }
 
 'Define the parameter settings to be tested'
@@ -96,7 +95,9 @@ model_reporters = {"num_citizens": lambda m: m.schedule.get_agent_count(),
 
 'specifying the model class, the parameter settings, the number of times to run each set of parameters, and the reporters to be tracked'
 
-run = batch_run(MinimalModel, parameters, number_processes=1, max_steps=10)
+if __name__ == "__main__":
+    freeze_support()
+    run = batch_run(MinimalModel, parameters, number_processes=None, max_steps=100)
 'run the Batchrunner'
 
 # results = batch_run.get_model_vars_dataframe()
