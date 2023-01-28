@@ -13,7 +13,7 @@ import random
 
 from model import MinimalModel
 
-model = MinimalModel(50, 2000, 5, 15, 10)
+model = MinimalModel(500, 20000, 5, 15, 10)
 
 # Run the model
 for i in [*range(500)]:
@@ -26,4 +26,5 @@ model.step()
 
 
 model_data = model.datacollector.get_model_vars_dataframe()
-agent_data = model.datacollector.get_agent_vars_dataframe('Citizen')
+citizen_data = model.datacollector.get_agent_vars_dataframe('Citizen')
+building_data = model.datacollector.get_agent_vars_dataframe('Building')
