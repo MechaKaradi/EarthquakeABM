@@ -361,9 +361,11 @@ class MinimalModel(Model):
         # Phase 6
 
         print("This is step: " + str(self.schedule.steps))
-        # self.schedule.step()
-
         self.datacollector.collect(self)
+
+        if self.schedule.steps % 499 == 0:  # write to file every 10 steps
+            data = self.datacollector.get_model_vars_dataframe()
+            data.to_csv('output.csv')
 
         self.schedule.steps += 1
         self.schedule.time += 1

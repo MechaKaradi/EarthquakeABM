@@ -232,6 +232,10 @@ class ExtendedDataCollector(DataCollector):
             if self.agent_reporters[agent_type]:
                 agent_records = self._record_agents(model, agent_type)
                 self._agent_records[agent_type][model.schedule.steps] = list(agent_records)
+                self._agent_records[model.schedule.steps] = list(agent_records)
+                print(self._agent_records[model.schedule.steps])
+
+
 
     def get_agent_vars_dataframe(self, agent_type):
         """Create a pandas DataFrame from the agent variables.

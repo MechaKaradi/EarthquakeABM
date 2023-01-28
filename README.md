@@ -65,3 +65,8 @@ In the agents.py file, I have made changes to the Ambulance class to make it use
 Specifically, I have added new code in the transport_patient and step methods to first find the shortest path to the hospital and then move the ambulance towards the hospital one step at a time. I have also added an import statement at the top of the script to import the MobileAgent class.
 Additionally, in the step method, I have added a check to see if the ambulance has reached the hospital and if so, the patient's health status is updated to "treated" and the patient is set to None.
 Please note that these changes should improve the accuracy of the ambulance's movement to the hospital, but it's important to keep testing and monitoring the performance of the model to ensure it is functioning as expected.
+
+
+In model.py i add since line 363, three more lines for just get the output of this and writer as a file while the modelling is running, so we dont to vary the data later, for now takes and writes for the first 10 steps.
+I add two lines to the dictionary (UtiliClasses.py) Line 235 that creates a variable called 'agent_records' that stores the records f the agents of a certain type from the model that we are using. 
+Then Line 236 adds the agent records to a dictionary called 'self_agents_records' at the current step of the simulation
