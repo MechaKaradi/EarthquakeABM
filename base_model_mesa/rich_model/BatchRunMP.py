@@ -96,7 +96,7 @@ model_reporters = {"num_citizens": lambda m: m.schedule.get_agent_count(),
 
 'specifying the model class, the parameter settings, the number of times to run each set of parameters, and the reporters to be tracked'
 
-run = batch_run(MinimalModel, parameters, number_processes=1, max_steps=10)
+run = batch_run(MinimalModel, parameters, number_processes=1, max_steps= 10)
 'run the Batchrunner'
 
 # results = batch_run.get_model_vars_dataframe()
