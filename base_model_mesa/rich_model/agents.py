@@ -314,9 +314,9 @@ class MobileAgent(MinimalAgent):
     model_parent : the model in which the agent is being initialized
     """
 
-    def __int__(self, unique_id, model):
+    def __init__(self, unique_id, model: MinimalModel):
         super().__init__(unique_id, model)
-        self.agentFamily = str(type(self).__name__)
+        self.current_path = None
 
     def find_path(self, destination):
         # Use the networkx library to find the shortest route from the position to the destination
@@ -352,13 +352,18 @@ class MobileAgent(MinimalAgent):
         Returns
         -------
         """
-        path = self.find_path(destination)
-        if len(path) == 0:
-            raise ValueError('No path to destination')
-        if len(path) == 1:
+        if self.position_node() == destination:
             return 'Reached'
 
-        next_node = self.find_path(destination)[1]
+        if self.current_path is None or len(self.current_path) == 0 or self.current_path[-1] != destination:
+            self.current_path = self.find_path(destination)
+            if len(self.current_path) == 0:
+                raise ValueError('No path to destination')
+            self.current_path.pop(0)
+            if len(self.current_path) == 0:
+                raise ValueError(f'The impossible has happened in {self.unique_id}')
+
+        next_node = self.current_path.pop(0)
         self._move(next_node)
         return next_node
 

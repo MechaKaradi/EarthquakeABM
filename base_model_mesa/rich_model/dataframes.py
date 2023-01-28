@@ -11,34 +11,19 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import random
 
+from model import MinimalModel
 
-from agents import MinimalAgent, Building, MobileAgent, Citizen
-from model import  MinimalModel
+model = MinimalModel(50, 2000, 5, 15, 10)
 
-import holoviews as hv
-hv.extension('matplotlib')
+# Run the model
+for i in [*range(500)]:
+    model.step()
 
-model = MinimalModel(10)
 
 model.step()
 
+
+
+
 model_data = model.datacollector.get_model_vars_dataframe()
-agent_data = model.datacollector.get_agent_vars_dataframe()
-print(model_data)
-print(agent_data)
-
-graph = model.G
-
-datadump = pandas.DataFrame.from_dict(model.G._node, orient="index")
-
-
-# from graph get a dictionary of nodes and their pos attribute
-a = dict(model.G.nodes.data('pos'))
-
-# Node positions defined as a dictionary mapping from node id to (x, y) tuple or networkx layout function which computes a positions dictionary
-# create a dictionary consisting of x,y coordinates for each node
-
-
-hv.Graph.from_networkx(G=graph, positions=a)
-
-
+agent_data = model.datacollector.get_agent_vars_dataframe('Citizen')

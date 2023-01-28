@@ -334,7 +334,7 @@ class MinimalModel(Model):
                  num_citizens: int,
                  num_hospitals: int,
                  num_ambulances: int,
-                 dispatch_size,
+                 dispatch_size: int,
                  **kwargs
                  ):
 
@@ -350,9 +350,9 @@ class MinimalModel(Model):
             self.EARTHQUAKE_EVENTS = kwargs['EARTHQUAKE_EVENTS']
         else:
             self.EARTHQUAKE_EVENTS: Dict[int, float] = {
-            1: 8.0,  # initial earthquake
-            # 600: 7.0,  # aftershock 1
-            # 1200: 6.0,  # aftershock 2
+                1: 8.0,  # initial earthquake
+                # 600: 7.0,  # aftershock 1
+                # 1200: 6.0,  # aftershock 2
             }
 
         if 'MINIMUM_RESIDENCY' in kwargs:
