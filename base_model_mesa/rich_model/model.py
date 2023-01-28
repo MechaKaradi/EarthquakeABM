@@ -360,12 +360,11 @@ class MinimalModel(Model):
 
         # Phase 6
 
-        print("This is step: " + str(self.schedule.steps))
         self.datacollector.collect(self)
 
         if self.schedule.steps % 500 == 0:  # write to file every 10 steps
             data = self.datacollector.get_agent_vars_dataframe('Citizen')
-            data.to_csv(self.model_id)
+            data.to_csv(f'{self.model_id}.csv')
 
         self.schedule.steps += 1
         self.schedule.time += 1
@@ -537,10 +536,12 @@ class TriageModelAlpha(MinimalModel):
 
         # Phase 6
 
-        #print("This is step: " + str(self.schedule.steps))
-        # self.schedule.step()
 
         self.datacollector.collect(self)
+
+        if self.schedule.steps % 500 == 0:  # write to file every 10 steps
+            data = self.datacollector.get_agent_vars_dataframe('Citizen')
+            data.to_csv(f'tri-{self.model_id}.csv')
 
         self.schedule.steps += 1
         self.schedule.time += 1
