@@ -616,12 +616,12 @@ class Ambulance(Responder):
     status: str
 
     choice_dict: Dict[str, str] = {
-            'Idle': 'get_order',
-            'Moving': 'step_to_destination',
-            'Reached': 'pick_up_patient',
-            'Returning': 'step_to_hospital',
-            'Hospital': 'drop_off_patient'
-        }
+        'Idle': 'get_order',
+        'Moving': 'step_to_destination',
+        'Reached': 'pick_up_patient',
+        'Returning': 'step_to_hospital',
+        'Hospital': 'drop_off_patient'
+    }
 
     # Todo: Action decision making
     # Todo: State Management for all agents
@@ -809,14 +809,10 @@ class DoctorTeam(Responder):
         if site is None:
             raise ValueError('Site is None')
         if site.position_node != self.position_node:
-            raise ValueError(f'Site is not at the same location as the DoctorTeam: {self.unique_id}}')
-
-
-
+            raise ValueError(f'Site is not at the same location as the DoctorTeam: {self.unique_id}')
 
         injured_citzens = [agent for agent in site.occupants if agent.health != '13']
-        self.model.random.choice(injured_citzens)
-        patient =
+        patient = self.model.random.choice(injured_citzens)
         if patient is None:
             raise ValueError('Patient is None')
         if patient.position_node != self.position_node:
