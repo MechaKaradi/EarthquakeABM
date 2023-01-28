@@ -164,7 +164,18 @@ class MinimalModel(Model):
 
     def step(self):
         print("This is step: " + str(self.schedule.steps))
+<<<<<<< Updated upstream
         self.schedule.step()
+=======
+        # self.schedule.step()
+        
+    def step(self):
+        self.datacollector.collect(self)
+        if self.schedule.steps % 10 == 0:  # write to file every 10 steps
+            data = self.datacollector.get_model_vars_dataframe()
+            data.to_csv('output.csv')
+            
+>>>>>>> Stashed changes
         self.datacollector.collect(self)
 
 
