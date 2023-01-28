@@ -6,12 +6,12 @@ import mesa.time as time
 import mesa.space as space
 from mesa.datacollection import DataCollector
 
-from typing import TYPE_CHECKING, Tuple, List, Any, Set
+from typing import TYPE_CHECKING, Tuple, List, Any, Set, Dict
 
 if TYPE_CHECKING:
     # We ensure that these are not imported during runtime to prevent cyclic
     # dependency.
-    from model import MinimalModel
+    from model import MinimalModel, TriageModelAlpha
 
 from enum import Enum
 import pickle
@@ -37,7 +37,6 @@ class MinimalAgent(Agent):
                                        )
 
         self._pos = None
-
 
     # Handles Position of all agents
     @property
@@ -99,6 +98,7 @@ class MinimalAgent(Agent):
 
         self._pos = None
 
+    @property
     def position_node(self):
         """
         Returns the node ID of the agent's position, recursively if the _pos is an agent object
@@ -109,7 +109,7 @@ class MinimalAgent(Agent):
         if isinstance(self._pos, int):
             return self._pos
         elif isinstance(self._pos, (Building, Hospital, Ambulance)):
-            return self._pos.position_node()
+            return self._pos.position_node
         else:
             raise ValueError("The location of the agent is of a type that is not supported")
 
@@ -302,7 +302,6 @@ class Hospital(Building):
         self.ambulances = []
         self.open_incident_sites = []
 
-
     def get_own_voronoi_cell(self):
         self.service_area = self.model.hospital_voronoi[self._pos]
 
@@ -320,7 +319,7 @@ class MobileAgent(MinimalAgent):
 
     def find_path(self, destination):
         # Use the networkx library to find the shortest route from the position to the destination
-        path = nx.shortest_path(self.model.G, source=self.position_node(), target=destination)
+        path = nx.shortest_path(self.model.G, source=self.position_node, target=destination)
         return path
 
     def _move(self, destination):
@@ -352,7 +351,7 @@ class MobileAgent(MinimalAgent):
         Returns
         -------
         """
-        if self.position_node() == destination:
+        if self.position_node == destination:
             return 'Reached'
 
         if self.current_path is None or len(self.current_path) == 0 or self.current_path[-1] != destination:
@@ -448,7 +447,7 @@ class Citizen(MobileAgent):
             self.health = 0
         self.is_injured = True
 
-    counter_health = -1
+    counter_health: int = int(-1)
     ticks_to_next_health = {12: 90,
                             11: 90,
                             10: 60,
@@ -467,14 +466,14 @@ class Citizen(MobileAgent):
 
     def set_counter_health(self):
         if self.health == 13:
-            self.counter_health = -1
+            self.counter_health = int(-1)
             return 'healthy'
 
         if self.health == 0:
-            self.counter_health = -100
+            self.counter_health = int(-100)
             return 'dead'
 
-        self.counter_health = self.ticks_to_next_health[self.health]
+        self.counter_health = int(self.ticks_to_next_health[self.health])
         return 'injured'
 
     def tick_health(self):
@@ -555,7 +554,6 @@ class Responder(MobileAgent):
     """A string representing the Citizen that the agent has to respond to
     or the building that the agent has to respond to"""
 
-
     def __init__(self, unique_id, model):
         super().__init__(unique_id, model)
         self.agentFamily = str(type(self).__name__)
@@ -563,7 +561,6 @@ class Responder(MobileAgent):
         self.order = None
 
         self.destination = None
-
 
     def get_closest_hospital(self):
         """Find the location of the closest hospital to current location
@@ -606,27 +603,36 @@ class Responder(MobileAgent):
             status = 'Idle'
             return None
         else:
-            self.destination = self.model.schedule.find_agent_by_id(self.order).position_node()
+            self.destination = self.model.schedule.find_agent_by_id(self.order).position_node
             self.status = 'Moving'
             return self.status
 
+
 class Ambulance(Responder):
-    occupants = []
+    occupants: List[Citizen]
     """Occupants other than the patient being carried, if any"""
-    patient: None
+    patient: Citizen | None
     """the object representing the patient which is being carried by the responder"""
     status: str
+
+    choice_dict: Dict[str, str] = {
+            'Idle': 'get_order',
+            'Moving': 'step_to_destination',
+            'Reached': 'pick_up_patient',
+            'Returning': 'step_to_hospital',
+            'Hospital': 'drop_off_patient'
+        }
+
     # Todo: Action decision making
     # Todo: State Management for all agents
 
     def __init__(self, unique_id, model):
         super().__init__(unique_id, model)
-        self.agentFamily = str(type(self).__name__)
         self.occupants = []
         self.patient = None
         self.status = 'Idle'
 
-        self.choice_dict = {
+        assert self.choice_dict == {
             'Idle': 'get_order',
             'Moving': 'step_to_destination',
             'Reached': 'pick_up_patient',
@@ -657,10 +663,6 @@ class Ambulance(Responder):
     def pick_up_patient(self):
         """Method to pick up a patient and add them to the ambulance
 
-        Parameters
-        ----------
-        patient: Citizen
-
         Returns
         -------
         """
@@ -668,7 +670,7 @@ class Ambulance(Responder):
         patient = self.model.schedule.find_agent_by_id(self.order)
         if patient is None:
             raise ValueError('Patient is None')
-        if patient.position_node() != self.position_node():
+        if patient.position_node != self.position_node:
             raise ValueError('Patient is not at the same location as the ambulance')
 
         patient.position = self
@@ -693,7 +695,7 @@ class Ambulance(Responder):
         Returns
         -------
         """
-        hospital = self.model.G.nodes[self.position_node()]['Hospital'][0]
+        hospital = self.model.G.nodes[self.position_node]['Hospital'][0]
         patient = self.patient
 
         if hospital is None:
@@ -719,8 +721,109 @@ class Ambulance(Responder):
 
 
 class DoctorTeam(Responder):
-    # TOdo: Assign the DoctorTeam to an ambulance.
+    _current_patient: Citizen | None
+    model: TriageModelAlpha
+    status: str
+
+    choice_dict: Dict[str, str] = {
+        'Idle': 'get_order',
+        'Moving': 'step_to_destination',
+        'Reached': 'perform_triage',
+        'Returning': 'step_to_hospital',
+        'Hospital': 'drop_off_patient'
+    }
+
+    # TOdo: Assign the DoctorTeam to a hospital.
     # TODO; Create a triage function to model the doctors performing triage on the site
     # Todo: Create a stabilising function/status for when the are stabilising a patient
     # Todo: Changing sites with shared decision making of ambulance
-    pass
+    def __init__(self, unique_id, model: TriageModelAlpha):
+        super().__init__(unique_id, model)
+        self.status = 'Idle'
+        self._current_patient = None
+
+        assert self.choice_dict
+
+    def step(self):
+        """Method to step the ambulance through the model
+
+        Parameters
+        ----------
+
+        Returns
+        -------
+        """
+        if self.status is None:
+            self.status = 'Idle'
+        self.make_choice()
+
+    def make_choice(self):
+        """
+        Returns
+        -------
+        choice:
+        for Status -> Call action
+        """
+        if self.status is None:
+            raise ValueError('Status is None')
+
+        getattr(self, self.choice_dict[self.status])()
+        return self.status
+
+    def get_order(self):
+        """Method to get an order from the dispatcher
+
+        Parameters
+        ----------
+        self.model.dispatcher: Dispatcher
+        """
+        self.order = self.model.dispatcher.get_incident()
+        # Get the first part of the order string which is the type of agent
+        # that the responder needs to respond to
+
+        if self.order is None:
+            status = 'Idle'
+            return None
+        else:
+            self.destination = self.model.schedule.find_agent_by_id(self.order).position_node
+            self.status = 'Moving'
+            return self.status
+
+    def step_to_destination(self):
+        dest = self.destination
+        val = super().step_to_destination(dest)
+        if val == 'Reached':
+            self.status = 'Reached'
+        return self.status
+
+    def perform_triage(self):
+        """Method to perform triage on a patient
+
+        Returns
+        -------
+        """
+        # Confirm the postion of the ordered patient
+        # Get a random injured citizen location in the 'order' building
+        site = self.model.schedule.find_agent_by_id(self.order)
+
+        if site is None:
+            raise ValueError('Site is None')
+        if site.position_node != self.position_node:
+            raise ValueError(f'Site is not at the same location as the DoctorTeam: {self.unique_id}}')
+
+
+
+
+        injured_citzens = [agent for agent in site.occupants if agent.health != '13']
+        self.model.random.choice(injured_citzens)
+        patient =
+        if patient is None:
+            raise ValueError('Patient is None')
+        if patient.position_node != self.position_node:
+            raise ValueError('Patient is not at the same location as the ambulance')
+
+        patient.position = self
+        self.patient = patient
+
+        self.status = 'Returning'
+        return self.status
