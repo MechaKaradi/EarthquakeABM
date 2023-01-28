@@ -2,15 +2,14 @@ from mesa.batchrunner import BatchRunnerMP, batch_run
 from model import MinimalModel
 import multiprocessing
 
-
 parameters = {
-    #"magnitude": [5, 6, 7],
+    # "magnitude": [5, 6, 7],
     "num_citizens": [3000],
     "num_buildings": [100],
     "num_hospitals": [5],
-    "num_ambulances": [0,1,5,15],
+    "num_ambulances": [0, 1, 5, 15],
     "num_doctors": [1],
-    "dispatch_size": [5,10]
+    "dispatch_size": [5, 10]
 }
 
 'Define the parameter settings to be tested'
@@ -66,45 +65,40 @@ model_reporters = {"num_citizens": lambda m: m.schedule.get_agent_count(),
             if len(self.datacollector_agent_reporters.keys()) == 0:
                 self.datacollector_agent_reporters = None """
 
-    # def run_iteration(self, kwargs, param_values, run_count):
-    #     """ Run one iteration of the model, with the given parameters. """
-    #     model = self.model_cls(**kwargs)
-    #     results = self.run_model(model)
-    #     if param_values is not None:
-    #         model_key = tuple(param_values) + (run_count,)
-    #     else:
-    #         model_key = (run_count,)
-    #
-    #     if self.model_reporters:
-    #         self.model_vars[model_key] = self.collect_model_vars(model)
-    #     if self.agent_reporters:
-    #         agent_vars = self.collect_agent_vars(model)
-    #         for agent_id, reports in agent_vars.items():
-    #             agent_key = model_key + (agent_id,)
-    #             self.agent_vars[agent_key] = reports
-    #     # Collects data from datacollector object in model
-    #     if results is not None:
-    #         if results.model_reporters is not None:
-    #             self.datacollector_model_reporters[
-    #                 model_key
-    #             ] = results.get_model_vars_dataframe()
-    #         if results.agent_reporters is not None:
-    #             self.datacollector_agent_reporters[
-    #                 model_key
-    #             ] = results.get_agent_vars_dataframe('Citizen')
+# def run_iteration(self, kwargs, param_values, run_count):
+#     """ Run one iteration of the model, with the given parameters. """
+#     model = self.model_cls(**kwargs)
+#     results = self.run_model(model)
+#     if param_values is not None:
+#         model_key = tuple(param_values) + (run_count,)
+#     else:
+#         model_key = (run_count,)
+#
+#     if self.model_reporters:
+#         self.model_vars[model_key] = self.collect_model_vars(model)
+#     if self.agent_reporters:
+#         agent_vars = self.collect_agent_vars(model)
+#         for agent_id, reports in agent_vars.items():
+#             agent_key = model_key + (agent_id,)
+#             self.agent_vars[agent_key] = reports
+#     # Collects data from datacollector object in model
+#     if results is not None:
+#         if results.model_reporters is not None:
+#             self.datacollector_model_reporters[
+#                 model_key
+#             ] = results.get_model_vars_dataframe()
+#         if results.agent_reporters is not None:
+#             self.datacollector_agent_reporters[
+#                 model_key
+#             ] = results.get_agent_vars_dataframe('Citizen')
 
 # batch_run = BatchrunnerExtender(MinimalModel, parameters, max_steps=5)
 
 'specifying the model class, the parameter settings, the number of times to run each set of parameters, and the reporters to be tracked'
 
-run = batch_run(MinimalModel, parameters, number_processes=2, max_steps= 10)
+run = batch_run(MinimalModel, parameters, number_processes=1, max_steps=10)
 'run the Batchrunner'
 
 # results = batch_run.get_model_vars_dataframe()
 
 'Collect and analyze the results of the batch run to get the dataframe of the results'
-
-
-
-
-
