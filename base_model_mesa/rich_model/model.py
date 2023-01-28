@@ -73,14 +73,17 @@ class Dispatcher:
                     injured_citizens.append(citizen.unique_id)
         return injured_citizens
 
-    def update_calls_queue(self):
+    def update_calls_queue(self, limit: int | None = None):
         # adds random injured citizens to the calls queue
+        if limit is None:
+            limit = self.size
+
         calls = set()
         # create a set from injured citizens and then subtract the set of assigned citizens
         calls = set(self.injured_citizens()) - self._assigned
         calls = calls - set(self._calls_queue)
         # convert the set to a list and shuffle it and then get the first self.size elements
-        calls = self.model.random.sample(list(calls), min(self.size, len(calls)))
+        calls = self.model.random.sample(list(calls), min(limit, self.size, len(calls)))
         # add the calls to the queue
         self._calls_queue.extend(calls)
 
@@ -390,15 +393,18 @@ class TriageDispatcher(Dispatcher):
                 collapsed_buildings.append(building.unique_id)
         return collapsed_buildings
 
-    def update_incidents_queue(self):
+    def update_incidents_queue(self, limit: int | None = None):
         """Update the incidents queue with the collapsed buildings
         Only called by Dispatcher
         """
+        if limit is None:
+            limit = self.size
+
         incidents_queue = set(self._collapsed_buildings()) - self._assigned
         incidents_queue = incidents_queue - set(self._incidents_queue)
         # add as many incidents as possible
 
-        incidents_queue = self.model.random.sample(list(incidents_queue), min(self.size, len(incidents_queue)))
+        incidents_queue = self.model.random.sample(list(incidents_queue), min(limit, self.size, len(incidents_queue)))
         self._incidents_queue.extend(incidents_queue)
         return len(incidents_queue)
 
@@ -455,6 +461,7 @@ class TriageDispatcher(Dispatcher):
 class TriageModelAlpha(MinimalModel):
     """A model with some number of agents."""
     dispatcher: TriageDispatcher
+
     def __init__(self,
                  num_buildings: int,
                  num_citizens: int,
@@ -464,7 +471,7 @@ class TriageModelAlpha(MinimalModel):
                  dispatch_size: int,
                  **kwargs
                  ):
-        super().__init__(num_buildings, num_citizens, num_hospitals, num_ambulances)
+        super().__init__(num_buildings, num_citizens, num_hospitals, num_ambulances, dispatch_size)
         self.doctors_to_hospital(num_doctors)
         self.dispatcher = TriageDispatcher(self, dispatch_size)
 
@@ -481,3 +488,57 @@ class TriageModelAlpha(MinimalModel):
                 create_doctor(location=location)
                 i += 1
         return f'Created: {i} Doctor Teams'
+
+    def step(self):
+        # Phase 1
+        """External Events:
+        Check if this is an "Earthquake" event. If so, then call the "earthquake" method.
+        """
+        if self.schedule.steps in self.EARTHQUAKE_EVENTS:
+            self.earthquake(magnitude=self.EARTHQUAKE_EVENTS[self.schedule.steps])
+            """
+            self.earthquake calls the earthquake method of each building 
+            the building method handles applying the damage to the occupants of the buildings
+            """
+
+        # Phase 2
+        """Internal Events:
+        tick down the health of injured citizens not in a hospital
+            #TODO: apply a heal method to Citizens for hospital, ambulance, and doctor team
+            Current status: Being in Hospital will pause death, but not heal
+        heal injured citizens in a hospital
+            #TODO: Create Heal method in hospital/citizen
+        """
+        self.schedule.trigger_agent_action_by_type("Citizen", "tick_health")
+
+        # Phase 3
+        """Dispatcher observes situation and collects information
+        - Get list of collapsed buildings
+        ? - Get some subset of injured citizens
+        """
+        limit_calls = self.random.randint(self.dispatcher.size/2,self.dispatcher.size)
+        limit_incidents = self.dispatcher.size - limit_calls
+
+        self.dispatcher.update_calls_queue(limit_calls)
+        self.dispatcher.update_incidents_queue(limit_incidents)
+        # Phase 4
+        """Agent decision making:
+        By Agent:
+        - Citizen: 
+        - DoctorTeam: make_choice()
+        - Ambulance: make_choice()
+        - Hospital:
+        """
+        self.schedule.trigger_agent_action_by_type("Ambulance", "make_choice")
+        self.schedule.trigger_agent_action_by_type("DoctorTeam", "make_choice")
+        # Phase 5
+
+        # Phase 6
+
+        #print("This is step: " + str(self.schedule.steps))
+        # self.schedule.step()
+
+        self.datacollector.collect(self)
+
+        self.schedule.steps += 1
+        self.schedule.time += 1

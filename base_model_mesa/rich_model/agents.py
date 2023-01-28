@@ -26,10 +26,11 @@ class MinimalAgent(Agent):
     model: MinimalModel
     agentFamily: str
     counter: dict[str, int]
+    unique_id: str
 
-    def __init__(self, unique_id, model: MinimalModel):
-        super().__init__(unique_id, model)
-
+    def __init__(self, unique_id: str, model: MinimalModel):
+        self.unique_id = unique_id
+        self.model = model
         self.agentFamily = str(type(self).__name__)
         self.color = '%02x%02x%02x' % (random.randrange(0, 256, 16),
                                        random.randrange(0, 256, 16),
@@ -104,7 +105,6 @@ class MinimalAgent(Agent):
         Returns the node ID of the agent's position, recursively if the _pos is an agent object
         Returns
         -------
-
         """
         if isinstance(self._pos, int):
             return self._pos
@@ -473,7 +473,9 @@ class Citizen(MobileAgent):
             self.counter_health = int(-100)
             return 'dead'
 
-        self.counter_health = int(self.ticks_to_next_health[self.health])
+        mean = int(self.ticks_to_next_health[self.health])
+        sd = mean / (2 * 3)  # 3 sigma should be 50% of the mean value
+        self.counter_health = int(self.model.random.gauss(mean, sd))
         return 'injured'
 
     def tick_health(self):
@@ -623,9 +625,6 @@ class Ambulance(Responder):
         'Hospital': 'drop_off_patient'
     }
 
-    # Todo: Action decision making
-    # Todo: State Management for all agents
-
     def __init__(self, unique_id, model):
         super().__init__(unique_id, model)
         self.occupants = []
@@ -673,7 +672,7 @@ class Ambulance(Responder):
         if patient.position_node != self.position_node:
             raise ValueError('Patient is not at the same location as the ambulance')
 
-        patient.position = self
+        patient._move(self)
         self.patient = patient
 
         self.status = 'Returning'
@@ -729,14 +728,27 @@ class DoctorTeam(Responder):
         'Idle': 'get_order',
         'Moving': 'step_to_destination',
         'Reached': 'perform_triage',
-        'Returning': 'step_to_hospital',
-        'Hospital': 'drop_off_patient'
+        'Processing': 'perform_triage',
     }
 
-    # TOdo: Assign the DoctorTeam to a hospital.
-    # TODO; Create a triage function to model the doctors performing triage on the site
+    triage_dict: Dict[int, str] = {
+        0: 'Black',
+        1: 'Red',
+        2: 'Red',
+        3: 'Red',
+        4: 'Red',
+        5: 'Yellow',
+        6: 'Yellow',
+        7: 'Yellow',
+        8: 'Yellow',
+        9: 'Green',
+        10: 'Green',
+        11: 'Green',
+        12: 'Green',
+        13: 'Healthy'
+    }
+
     # Todo: Create a stabilising function/status for when the are stabilising a patient
-    # Todo: Changing sites with shared decision making of ambulance
     def __init__(self, unique_id, model: TriageModelAlpha):
         super().__init__(unique_id, model)
         self.status = 'Idle'
@@ -804,22 +816,38 @@ class DoctorTeam(Responder):
         """
         # Confirm the postion of the ordered patient
         # Get a random injured citizen location in the 'order' building
-        site = self.model.schedule.find_agent_by_id(self.order)
+        self.site = self.model.schedule.find_agent_by_id(self.order)
 
-        if site is None:
+        if self.site is None:
             raise ValueError('Site is None')
-        if site.position_node != self.position_node:
+        if self.site.position_node != self.position_node:
             raise ValueError(f'Site is not at the same location as the DoctorTeam: {self.unique_id}')
 
-        injured_citzens = [agent for agent in site.occupants if agent.health != '13']
-        patient = self.model.random.choice(injured_citzens)
+        injured_citizens = []
+        for agent in self.site.occupants:
+            if agent.health != '13' and agent.health != '0':
+                injured_citizens.append(agent)
+        if len(injured_citizens) == 0:
+            # No Injured citizens at the site
+            self.status = 'Idle'
+            return self.status
+
+        patient: Citizen = self.model.random.choice(injured_citizens)
         if patient is None:
             raise ValueError('Patient is None')
-        if patient.position_node != self.position_node:
-            raise ValueError('Patient is not at the same location as the ambulance')
+        if int(patient.position_node) != int(self.position_node):
+            raise ValueError(f'Patient {patient.unique_id} is not at the same location as the Doctor: {self.unique_id}')
 
-        patient.position = self
-        self.patient = patient
+        # Perform triage
+        patient.triage_status = self.triage_dict[patient.health]
 
-        self.status = 'Returning'
+        # Call Dispatch and report information
+        if patient.triage_status == "Yellow":
+            self.model.dispatcher.update_priority_queue(patient.unique_id)
+        elif patient.triage_status != "Healthy":
+            self.model.dispatcher.update_triaged_queue(patient.unique_id)
+
+        patient._move(self.position_node)
+
+        self.status = 'Processing'
         return self.status
