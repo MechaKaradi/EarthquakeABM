@@ -146,7 +146,7 @@ class MinimalModel(Model):
         self.schedule = StagedAndTypedTime(self)
 
         # Create Space
-        with open('street_network.data', 'rb') as file:
+        with open('.\street_network.data', 'rb') as file:
             self.G = pickle.load(file)
 
         self.grid = SpatialNetwork(self.G)
