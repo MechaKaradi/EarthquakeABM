@@ -19,11 +19,7 @@ model = MinimalModel(500, 20000, 5, 15, 10)
 for i in [*range(500)]:
     model.step()
 
-
 model.step()
-
-
-
 
 model_data = model.datacollector.get_model_vars_dataframe()
 citizen_data = model.datacollector.get_agent_vars_dataframe('Citizen')

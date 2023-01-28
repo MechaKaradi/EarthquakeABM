@@ -135,7 +135,7 @@ class MinimalModel(Model):
         self.num_ambulances = num_ambulances
 
         self.dispatch_size = dispatch_size
-
+        self.model_id = '-'.join([str(num_buildings),str(num_citizens),str(num_hospitals),str(num_ambulances),str(dispatch_size),])
         if 'EARTHQUAKE_EVENTS' in kwargs:
             self.EARTHQUAKE_EVENTS = kwargs['EARTHQUAKE_EVENTS']
         else:
@@ -363,9 +363,9 @@ class MinimalModel(Model):
         print("This is step: " + str(self.schedule.steps))
         self.datacollector.collect(self)
 
-        if self.schedule.steps % 499 == 0:  # write to file every 10 steps
-            data = self.datacollector.get_model_vars_dataframe()
-            data.to_csv('output.csv')
+        if self.schedule.steps % 500 == 0:  # write to file every 10 steps
+            data = self.datacollector.get_agent_vars_dataframe('Citizen')
+            data.to_csv(self.model_id)
 
         self.schedule.steps += 1
         self.schedule.time += 1

@@ -97,7 +97,7 @@ model_reporters = {"num_citizens": lambda m: m.schedule.get_agent_count(),
 
 if __name__ == "__main__":
     freeze_support()
-    run = batch_run(MinimalModel, parameters, number_processes=None, max_steps=100)
+    run = batch_run(MinimalModel, parameters, number_processes=None, max_steps=500)
 'run the Batchrunner'
 
 # results = batch_run.get_model_vars_dataframe()
