@@ -101,6 +101,11 @@ class Dispatcher:
 
 
 class MinimalModel(Model):
+    """ Minimal Model
+    The basic model of earthquake response, consisting of Citizens that get injured, and Ambulances that rush to
+    pick them up in response.
+
+    """
     dispatcher: Dispatcher
     MINIMUM_RESIDENCY: int
     """a percentage, the minimum proportion of each building which is occupied at the time of spawn"""
