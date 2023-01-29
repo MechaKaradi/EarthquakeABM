@@ -302,6 +302,17 @@ class Hospital(Building):
         self.ambulances = []
         self.open_incident_sites = []
 
+    def add_citizen(self, citizen) -> None:
+        """
+        Method to add a citizen to the building. The method should check if the building is full before adding the
+        citizen.
+
+        Parameters
+        ----------
+        citizen : Citizen
+        """
+        self.occupants.append(citizen)
+
     def get_own_voronoi_cell(self):
         self.service_area = self.model.hospital_voronoi[self._pos]
 
