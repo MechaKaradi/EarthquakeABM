@@ -1,5 +1,6 @@
 
-*.pyc
+*.cpython-38.pyc
 base_model_mesa/rich_model/__pycache__/agents.cpython-38.pyc
 *.pyc
 *.csv
+base_model_mesa/rich_model/triage_model_output.zip
