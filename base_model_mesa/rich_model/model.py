@@ -497,7 +497,7 @@ class TriageModelAlpha(MinimalModel):
                  iteration: int,
                  **kwargs
                  ):
-        super().__init__(num_buildings, num_citizens, num_hospitals, num_ambulances,num_doctors, dispatch_size, iteration, **kwargs)
+        super().__init__(num_buildings, num_citizens, num_hospitals, num_ambulances, dispatch_size, iteration, **kwargs)
         self.doctors_to_hospital(num_doctors)
         self.dispatcher = TriageDispatcher(self, dispatch_size)
         self.model_id = '-'.join([str(num_buildings),str(num_citizens),str(num_hospitals),str(num_ambulances), str(num_doctors), str(dispatch_size), str(iteration)])

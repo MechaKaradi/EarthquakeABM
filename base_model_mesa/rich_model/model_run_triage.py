@@ -13,7 +13,7 @@ import random
 
 from model import MinimalModel, TriageModelAlpha
 
-model = TriageModelAlpha(500, 20000, 5, 15, 10, 10)
+model = TriageModelAlpha(500, 20000, 5, 15, 10, 10, 1)
 
 
 # Run the model
