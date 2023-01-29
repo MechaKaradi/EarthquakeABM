@@ -109,7 +109,7 @@ class MinimalAgent(Agent):
         if isinstance(self._pos, int):
             return self._pos
         elif isinstance(self._pos, (Building, Hospital, Ambulance)):
-            return self._pos.position_node
+            return int(self._pos.position_node)
         else:
             raise ValueError("The location of the agent is of a type that is not supported")
 
@@ -597,17 +597,19 @@ class Responder(MobileAgent):
         ----------
         self.model.dispatcher: Dispatcher
         """
-        self.order = self.model.dispatcher.get_call()
+        get = self.model.dispatcher.get_call()
+        if get is None:
+            status = 'Idle'
+            return None
+
+        self.order = get[0]
+        self.order_type = get[1]
         # Get the first part of the order string which is the type of agent
         # that the responder needs to respond to
 
-        if self.order is None:
-            status = 'Idle'
-            return None
-        else:
-            self.destination = self.model.schedule.find_agent_by_id(self.order).position_node
-            self.status = 'Moving'
-            return self.status
+        self.destination = self.model.schedule.find_agent_by_id(self.order).position_node
+        self.status = 'Moving'
+        return self.status
 
 
 class Ambulance(Responder):
@@ -669,8 +671,8 @@ class Ambulance(Responder):
         patient = self.model.schedule.find_agent_by_id(self.order)
         if patient is None:
             raise ValueError('Patient is None')
-        if patient.position_node != self.position_node:
-            raise ValueError('Patient is not at the same location as the ambulance')
+        if int(patient.position_node) != int(self.position_node):
+            raise ValueError(f'Patient {patient.unique_id} is not at the same location as the {self.unique_id}')
 
         patient._move(self)
         self.patient = patient
@@ -700,7 +702,7 @@ class Ambulance(Responder):
         if hospital is None:
             raise ValueError('Ambulance is not at a hospital')
 
-        patient.position = hospital
+        patient._move(hospital)
         self.patient = None
         self.status = 'Idle'
         return self.status
@@ -823,16 +825,20 @@ class DoctorTeam(Responder):
         if self.site.position_node != self.position_node:
             raise ValueError(f'Site is not at the same location as the DoctorTeam: {self.unique_id}')
 
-        injured_citizens = []
+        self.list_injured_citizens = []
         for agent in self.site.occupants:
             if agent.health != '13' and agent.health != '0':
-                injured_citizens.append(agent)
-        if len(injured_citizens) == 0:
+                self.list_injured_citizens.append(agent)
+
+        if len(self.list_injured_citizens) == 0:
             # No Injured citizens at the site
             self.status = 'Idle'
             return self.status
 
-        patient: Citizen = self.model.random.choice(injured_citizens)
+        patient: Citizen = self.model.random.choice(self.list_injured_citizens)
+
+        del self.list_injured_citizens
+
         if patient is None:
             raise ValueError('Patient is None')
         if int(patient.position_node) != int(self.position_node):

@@ -38,7 +38,7 @@ class Dispatcher:
     It may handle information retrieval in cases where the agents are acting autonomously
     In all cases, the dispatcher is not the locus at which different policies are modeled.
     """
-    _assigned: Set[str]
+    _assigned: List[str]
     "A set of unique Ids of citizens that have been assigned to a responder"
     _calls_queue: List[str]
     "A list of unique Ids of citizens that have called for help"
@@ -59,7 +59,8 @@ class Dispatcher:
         self.model = model
         self.size = dispatch_size
         self._calls_queue = list()
-        self._assigned = set()
+        self._assigned = list()
+
 
     def injured_citizens(self):
         # list expression that creates a shuffled list of citizen unique Ids and returns them 1 by one
@@ -68,9 +69,9 @@ class Dispatcher:
         for citizen in self.model.schedule.agents_by_type["Citizen"].values():
             if citizen.is_injured:
                 if citizen.health > 0:
-                    if isinstance(citizen._pos, Hospital):
-                        continue
-                    injured_citizens.append(citizen.unique_id)
+                    if not isinstance(citizen._pos, Hospital):
+                        injured_citizens.append(citizen.unique_id)
+
         return injured_citizens
 
     def update_calls_queue(self, limit: int | None = None):
@@ -80,7 +81,7 @@ class Dispatcher:
 
         calls = set()
         # create a set from injured citizens and then subtract the set of assigned citizens
-        calls = set(self.injured_citizens()) - self._assigned
+        calls = set(self.injured_citizens()) - set(self._assigned)
         calls = calls - set(self._calls_queue)
         # convert the set to a list and shuffle it and then get the first self.size elements
         calls = self.model.random.sample(list(calls), min(limit, self.size, len(calls)))
@@ -97,8 +98,8 @@ class Dispatcher:
         # returns the next call in the queue
         if len(self._calls_queue) > 0:
             call: str = self._calls_queue.pop(0)
-            self._assigned.add(call)
-            return call
+            self._assigned.append(call)
+            return call, 'normal'
         else:
             return None
 
@@ -401,7 +402,7 @@ class TriageDispatcher(Dispatcher):
         if limit is None:
             limit = self.size
 
-        incidents_queue = set(self._collapsed_buildings()) - self._assigned
+        incidents_queue = set(self._collapsed_buildings()) - set(self._assigned)
         incidents_queue = incidents_queue - set(self._incidents_queue)
         # add as many incidents as possible
 
@@ -417,7 +418,7 @@ class TriageDispatcher(Dispatcher):
         """
         if len(self._incidents_queue) > 0:
             incident = self._incidents_queue.pop(0)
-            self._assigned.add(incident)
+            self._assigned.append(incident)
             return incident
         else:
             return None
@@ -426,6 +427,10 @@ class TriageDispatcher(Dispatcher):
         """Update the priority queue with the citizen_id
         Only called by DoctorTeam Responders when they are done triaging a citizen
         """
+        if citizen_id in self._calls_queue:
+            self._calls_queue.remove(citizen_id)
+        if citizen_id in self._assigned:
+            return None
         self._priority_queue.append(citizen_id)
         return None
 
@@ -433,8 +438,27 @@ class TriageDispatcher(Dispatcher):
         """Update the priority queue with the citizen_id
         Only called by DoctorTeam Responders when they are done triaging a citizen
         """
+        if citizen_id in self._calls_queue:
+            self._calls_queue.remove(citizen_id)
+        if citizen_id in self._assigned:
+            return None
         self._triaged_queue.append(citizen_id)
         return None
+
+    def update_calls_queue(self, limit: int | None = None):
+        if limit is None:
+            limit = self.size
+
+        calls = set()
+        # create a set from injured citizens and then subtract the set of assigned citizens
+        calls = set(self.injured_citizens()) - set(self._assigned)
+        calls = calls - set(self._calls_queue)
+        calls = calls - set(self._triaged_queue)
+        calls = calls - set(self._priority_queue)
+        # convert the set to a list and shuffle it and then get the first self.size elements
+        calls = self.model.random.sample(list(calls), min(limit, self.size, len(calls)))
+        # add the calls to the queue
+        self._calls_queue.extend(calls)
 
     def get_call(self):
         """fetches the next call in the queue
@@ -443,18 +467,18 @@ class TriageDispatcher(Dispatcher):
         """
         if len(self._priority_queue) > 0:
             call = self._priority_queue.pop(0)
-            self._assigned.add(call)
-            return call
+            self._assigned.append(call)
+            return call, 'priority'
         elif len(self._calls_queue) > 0 and self.flipper_calls == 1:
             call = self._calls_queue.pop(0)
-            self._assigned.add(call)
+            self._assigned.append(call)
             self.flipper_calls = 0
-            return call
+            return call, 'normal'
         elif len(self._triaged_queue) > 0 and self.flipper_calls == 0:
             call = self._triaged_queue.pop(0)
-            self._assigned.add(call)
+            self._assigned.append(call)
             self.flipper_calls = 1
-            return call
+            return call, 'triaged'
         else:
             return None
 
