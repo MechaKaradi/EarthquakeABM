@@ -126,7 +126,7 @@ class MinimalModel(Model):
                  num_hospitals: int,
                  num_ambulances: int,
                  dispatch_size: int,
-                 **kwargs
+                 iteration: int = None, **kwargs
                  ):
 
         # Parameters
@@ -136,7 +136,7 @@ class MinimalModel(Model):
         self.num_ambulances = num_ambulances
 
         self.dispatch_size = dispatch_size
-        self.model_id = '-'.join([str(num_buildings),str(num_citizens),str(num_hospitals),str(num_ambulances),str(dispatch_size),])
+        self.model_id = '-'.join([str(num_buildings),str(num_citizens),str(num_hospitals),str(num_ambulances),str(dispatch_size), str(iteration)])
         if 'EARTHQUAKE_EVENTS' in kwargs:
             self.EARTHQUAKE_EVENTS = kwargs['EARTHQUAKE_EVENTS']
         else:
@@ -494,12 +494,13 @@ class TriageModelAlpha(MinimalModel):
                  num_ambulances: int,
                  num_doctors: int,
                  dispatch_size: int,
+                 iteration: int,
                  **kwargs
                  ):
-        super().__init__(num_buildings, num_citizens, num_hospitals, num_ambulances,num_doctors, dispatch_size)
+        super().__init__(num_buildings, num_citizens, num_hospitals, num_ambulances,num_doctors, dispatch_size, iteration, **kwargs)
         self.doctors_to_hospital(num_doctors)
         self.dispatcher = TriageDispatcher(self, dispatch_size)
-
+        self.model_id = '-'.join([str(num_buildings),str(num_citizens),str(num_hospitals),str(num_ambulances), str(num_doctors), str(dispatch_size), str(iteration)])
     def doctors_to_hospital(self, doctors_per_hospital: int | Callable = 1):
         create_doctor = self.create_agents(DoctorTeam)
         i = 0

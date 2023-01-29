@@ -8,7 +8,8 @@ parameters = {
     "num_hospitals": [5,10],
     "num_ambulances": [0, 1, 5, 15, 20],
     "num_doctors": [1,10,15],
-    "dispatch_size": [1,10,50]
+    "dispatch_size": [1,10,50],
+    "iterations": [*range(1,11)],
 }
 
 'Define the parameter settings to be tested'
