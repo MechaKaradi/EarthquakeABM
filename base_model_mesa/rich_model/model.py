@@ -496,7 +496,7 @@ class TriageModelAlpha(MinimalModel):
                  dispatch_size: int,
                  **kwargs
                  ):
-        super().__init__(num_buildings, num_citizens, num_hospitals, num_ambulances, dispatch_size)
+        super().__init__(num_buildings, num_citizens, num_hospitals, num_ambulances,num_doctors, dispatch_size)
         self.doctors_to_hospital(num_doctors)
         self.dispatcher = TriageDispatcher(self, dispatch_size)
 
@@ -541,7 +541,7 @@ class TriageModelAlpha(MinimalModel):
         - Get list of collapsed buildings
         ? - Get some subset of injured citizens
         """
-        limit_calls = self.random.randint(self.dispatcher.size/2,self.dispatcher.size)
+        limit_calls = self.random.randint(int(self.dispatcher.size/2),self.dispatcher.size)
         limit_incidents = self.dispatcher.size - limit_calls
 
         self.dispatcher.update_calls_queue(limit_calls)
