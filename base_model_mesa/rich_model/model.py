@@ -494,7 +494,7 @@ class TriageModelAlpha(MinimalModel):
                  num_ambulances: int,
                  num_doctors: int,
                  dispatch_size: int,
-                 iteration: int,
+                 iteration: int = None,
                  **kwargs
                  ):
         super().__init__(num_buildings, num_citizens, num_hospitals, num_ambulances, dispatch_size, iteration, **kwargs)
